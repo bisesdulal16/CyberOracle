@@ -6,7 +6,7 @@
 
 ---
 
-## 📌 System Context
+## System Context
 Cyberoracle integrates a secure DevSecOps pipeline. The main assets and entry points we considered for Week 1 are:
 
 - **Assets:** source code, CI/CD pipeline, build artifacts, secrets, database, logs, monitoring tools.  
@@ -14,7 +14,7 @@ Cyberoracle integrates a secure DevSecOps pipeline. The main assets and entry po
 
 ---
 
-## 🔐 STRIDE Threats (Draft v1)
+## STRIDE Threats (Draft v1)
 
 | # | Threat | STRIDE Category | Risk (L/M/H) | Early Mitigation |
 |---|--------|-----------------|--------------|------------------|
@@ -29,11 +29,11 @@ Cyberoracle integrates a secure DevSecOps pipeline. The main assets and entry po
 
 ---
 
-## 📄 Notes
+## Notes
 - This is **Draft v1** of our threat model.  
 - We will refine it with data-flow diagrams and per-component analysis in Week 2–3.  
 - Each mitigation should be opened as an **issue in GitHub** and tracked through the backlog → in-progress → done boards.  
 
 ---
 
-✅ **Deliverable complete:** This file satisfies Week 1 requirement for **Threat Modeling**.
+**Deliverable complete:** This file satisfies Week 1 requirement for **Threat Modeling**.
