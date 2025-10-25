@@ -1,0 +1,4 @@
+# FastAPI core
+fastapi==0.118.0
+uvicorn==0.37.0
+pydantic==2.12.0
