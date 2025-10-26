@@ -31,6 +31,8 @@ jobs:
           pip install pytest coverage fastapi
 
       - name: Run Tests with Coverage
+        env:
+          PYTHONPATH: .
         run: |
           pytest --maxfail=1 --disable-warnings -q
           coverage run -m pytest
