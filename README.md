@@ -1,5 +1,5 @@
 # CyberOracle
-
+![CyberOracle CI](https://github.com/bisesdulal16/CyberOracle>/actions/workflows/ci.yml/badge.svg)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Build Status](https://img.shields.io/badge/build-passing-brightgreen.svg)]()
 [![Docker](https://img.shields.io/badge/docker-ready-blue.svg)]()
