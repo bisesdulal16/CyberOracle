@@ -1,0 +1,38 @@
+name: CyberOracle CI
+
+on:
+  push: 
+    branches:
+      - main
+      - feature_core-api
+      - feature_monitoring
+      - feature_docker-cli
+      - feature_security
+  pull_request:
+    branches: [ "main" ]
+  
+jobs: 
+  build-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Respository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python version: "3.11"
+      
+      - name: Install Dependencies
+        run: |
+          python -m pip install -upgrade pip
+          pip install -r requirements.txt
+          pip install pytest coverage fastapi version
+
+      - name: Run Tests with Coverage
+        run: |
+          pytest --maxfail=1 --disable-warnings -q
+          coverage run -m pytest
+          coverage report -m
+
