@@ -1,0 +1,47 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+*.egg-info/
+dist/
+build/
+
+# Virtual environments
+venv/
+ENV/
+env/
+.venv/
+
+# IDE / Editor files
+.vscode/
+.idea/
+*.swp
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs and temporary files
+*.log
+*.tmp
+*.bak
+
+# Coverage and test reports
+htmlcov/
+.coverage
+.pytest_cache/
+
+# Environment files (DO NOT COMMIT)
+.env
+.env.*
+
+# Docker and deployment
+*.pid
+*.db
+*.sqlite3
+*.pem
+
+# Node/npm (if front-end code exists)
+node_modules/
