@@ -1,5 +1,5 @@
 from fastapi import FastAPI
-from app.routes import logs
+from app.routes import logs, secure
 
 app = FastAPI(
     title="CyberOracle Gateway",
@@ -12,3 +12,4 @@ async def health():
     return {"status": "OK", "service": "CyberOracle API"}
 
 app.include_router(logs.router, prefix="/logs", tags=["Logs"])
+app.include_router(secure.router, prefix="/secure", tags=["Security"])
