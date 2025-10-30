@@ -57,7 +57,7 @@ class DLPFilterMiddleware(BaseHTTPMiddleware):
             #if any sensitive data was found and replaced convert the cleaned body back into bytes and replace original raw request body
             #ensures downstream route handlers receive the sanitized version.
             if redacted:
-                request._body = str.encode(str(body))
+                request._body = json.dumps(body).encode("utf-8")
         
         #once processing is done, the sanitized request is forwarded to the next layer (FastAPI route.)        
         response = await call_next(request)
