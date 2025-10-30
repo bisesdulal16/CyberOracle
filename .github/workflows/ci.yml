@@ -2,12 +2,7 @@ name: CyberOracle CI
 
 on:
   push: 
-    branches:
-      - main
-      - feature_core-api
-      - feature_monitoring
-      - feature_docker-cli
-      - feature_security
+    branches: [ "main" ]
   pull_request:
     branches: [ "main" ]
   
