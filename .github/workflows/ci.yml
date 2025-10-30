@@ -23,13 +23,17 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-          pip install pytest coverage fastapi
+          pip install pytest pytest-cov flake8 black fastapi
 
-      - name: Run Tests with Coverage
+      - name: Lint with flake8 and black
+        run: |
+          black --check .
+          flake8 .
+
+      - name: Run Tests with Coverage (>=80%)
         env:
           PYTHONPATH: .
         run: |
-          pytest --maxfail=1 --disable-warnings -q
-          coverage run -m pytest
+          pytest --cov=app --cov-fail-under=80 --maxfail=1 --disable-warnings -q
           coverage report -m
 
