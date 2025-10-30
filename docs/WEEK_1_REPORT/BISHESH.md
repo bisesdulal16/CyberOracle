@@ -33,9 +33,9 @@ Initialize FastAPI backend and establish CI/CD linting workflow.
 ## 🧪 Verification & Results
 | Check | Result | Screenshot |
 |--------|---------|------------|
-| Linting (`black --check .`) | ✅ `All done! ✨ 🍰 ✨` | ![Black Check Success](../docs/screenshots/week1_black_check.png) |
-| flake8 Validation | ✅ `no issues found` | ![Flake8 Success](../docs/screenshots/week1_flake8_pass.png) |
-| CI Pipeline | ✅ Workflow ran successfully on `main` | ![GitHub Actions Pass](../docs/screenshots/week1_ci_pass.png) |
+| Linting (`black --check .`) | ✅ `All done! ✨ 🍰 ✨` | ![Black Check Success](screenshots/week1_black_check.png) |
+| flake8 Validation | ✅ `no issues found` | ![Flake8 Success](screenshots/week1_flake8_pass.png) |
+| CI Pipeline | ✅ Workflow ran successfully on `main` | ![GitHub Actions Pass](screenshots/week1_ci_pass.png) |
 
 ---
 
