@@ -19,16 +19,18 @@ from app.main import app
 # Initialize a testing client for the FastAPI app
 client = TestClient(app)
 
+
 def test_health_endpoint():
     """
     Verify that the /health endpoint is working correctly.
     This ensures that the service is up, responding, and properly configured.
     """
     response = client.get("/health")
-    #Expect a 200 OK HTTP status
+    # Expect a 200 OK HTTP status
     assert response.status_code == 200
-    #Validate the expected JSON response format
+    # Validate the expected JSON response format
     assert response.json() == {"status": "OK", "service": "CyberOracle API"}
+
 
 def test_dlp_redacts_ssn():
     """
@@ -38,11 +40,12 @@ def test_dlp_redacts_ssn():
     """
     payload = {"data": "My SSN is 123-45-6789"}
     response = client.post("/logs", json=payload)
-    #Allow status codes 200,201, or 404 (depending on endpoint behavior)
-    assert response.status_code in [200,201,404]
-    #Ensure the SSN was replaced with redaction marks
+    # Allow status codes 200,201, or 404 (depending on endpoint behavior)
+    assert response.status_code in [200, 201, 404]
+    # Ensure the SSN was replaced with redaction marks
     assert "***" in str(response.text)
-    
+
+
 def test_dlp_allows_normal_data():
     """
     Test that the DLP middleware does NOT alter harmless data.
@@ -51,8 +54,7 @@ def test_dlp_allows_normal_data():
     """
     payload = {"data": "Hello from CyberOracle"}
     response = client.post("/logs", json=payload)
-    #Valid responses for POST without active /logs DB logic
-    assert response.status_code in [200,201,404]
-    #Verify that no redaction took place
+    # Valid responses for POST without active /logs DB logic
+    assert response.status_code in [200, 201, 404]
+    # Verify that no redaction took place
     assert "***" not in str(response.text)
-    
