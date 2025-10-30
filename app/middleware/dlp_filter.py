@@ -50,7 +50,7 @@ class DLPFilterMiddleware(BaseHTTPMiddleware):
                     for name, pattern in SENSITIVE_PATTERNS.items():
                         #if the regex finds a match (re.search), replace it with "***" using re.sub
                         if re.search(pattern, value):
-                            body[key] = re.seub(pattern, "***", value)
+                            body[key] = re.sub(pattern, "***", value)
                             #mark the request as redacted
                             redacted = True
             
