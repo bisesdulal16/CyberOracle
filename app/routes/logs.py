@@ -1,4 +1,4 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Request
 from app.schemas.log_schema import LogEntry
 
 router = APIRouter()
