@@ -11,6 +11,7 @@ This ensures sensitive information is never logged, stored, or leaked.
 """
 
 import re    #Python regex library
+import json
 from starlette.middleware.base import BaseHTTPMiddleware #Base class that lets to create custom middleware in FastAPI/Starlette
 from starlette.requests import Request  #Represents an incoming HTTP request object
 from starlette.responses import JSONResponse #useful to block requests
