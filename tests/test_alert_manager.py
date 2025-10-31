@@ -6,8 +6,6 @@ Ensures that the send_alert() function executes without raising
 errors and prints the expected payload when no webhook is set.
 """
 
-import builtins
-import json
 import io
 from contextlib import redirect_stdout
 from app.utils import alert_manager
