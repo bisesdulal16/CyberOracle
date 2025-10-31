@@ -7,6 +7,7 @@ when scanning text containing identifiable information.
 
 from app.middleware import dlp_presidio
 
+
 def test_presidio_detects_entities():
     sample = "Contact John Doe at 555-123-4567 for the meeting."
     sanitized_text, entities = dlp_presidio.presidio_scan(sample)
