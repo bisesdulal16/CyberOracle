@@ -8,3 +8,5 @@ pytest
 pytest-cov 
 flake8 
 black
+presidio-analyzer
+presidio-anonymizer
