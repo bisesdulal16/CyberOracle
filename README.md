@@ -71,6 +71,10 @@ We use [GitHub Issues](https://github.com/your-org/cyberoracle/issues) with the 
 ## Documentation
 - [`/docs`](./docs) – Setup guides, architecture diagrams, and compliance checklists  
 
+## Threat Modeling
+- [STRIDE v1 Threat Model](./threat-modeling/STRIDE-v1.md)
+- [RBAC and DLP Policy Configuration](./threat-modeling/policy.yaml)
+
 ---
 
 ## License
