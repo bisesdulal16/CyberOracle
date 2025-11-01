@@ -1,0 +1,124 @@
+# CyberOracle RBAC & DLP Policy Configuration v1
+# Author: Pradip Sapkota
+# Purpose: Define access control, DLP enforcement, alert triggers, and compliance baselines
+# Used by: FastAPI gateway middleware, CI compliance mapping, and Capstone II automation.
+
+version: "1.0"
+created: "2025-10-28"
+owner: "Pradip Sapkota"
+
+# ---------------------------------------------------------------------------
+# ROLE DEFINITIONS
+# ---------------------------------------------------------------------------
+roles:
+  admin:
+    description: "Full system access for platform operations and policy management."
+    permissions:
+      - manage_users
+      - modify_policies
+      - view_all_logs
+      - access_all_endpoints
+      - manage_integrations
+      - override_dlp_rules
+      - configure_alerts
+      - deploy_services
+      - view_dashboards
+
+  developer:
+    description: "Restricted access for testing APIs and monitoring DLP behavior."
+    permissions:
+      - test_api_endpoints
+      - view_own_logs
+      - read_dlp_rules
+      - view_dashboards
+      - trigger_manual_scan
+
+  auditor:
+    description: "Read-only access for compliance verification and reporting."
+    permissions:
+      - view_all_logs
+      - generate_compliance_reports
+      - export_audit_trails
+      - verify_dlp_accuracy
+      - monitor_alerts
+      - view_dashboards
+
+# ---------------------------------------------------------------------------
+# DATA LOSS PREVENTION (DLP) CONFIGURATION
+# ---------------------------------------------------------------------------
+dlp_rules:
+  enabled: true
+  block_on_detection: true    # Block API requests containing sensitive data
+  redact_mode: partial        # Redact matched segments instead of full payloads
+  patterns:
+    ssn:
+      regex: '\b\d{3}-\d{2}-\d{4}\b'
+      severity: critical
+      description: "Detects U.S. Social Security Numbers."
+    credit_card:
+      regex: '\b\d{4}[\s-]?\d{4}[\s-]?\d{4}[\s-]?\d{4}\b'
+      severity: critical
+      description: "Detects credit card numbers."
+    api_key:
+      regex: '(?i)(api[_-]?key|apikey|api[_-]?token)[\s:=]+["'']?([a-zA-Z0-9_-]{20,})["'']?'
+      severity: high
+      description: "Detects exposed API keys or tokens."
+    email:
+      regex: '\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b'
+      severity: medium
+      description: "Detects email addresses."
+
+# ---------------------------------------------------------------------------
+# RATE-LIMITING & BEHAVIORAL CONTROLS
+# ---------------------------------------------------------------------------
+rate_limiting:
+  enabled: true
+  window_seconds: 60
+  requests_per_minute:
+    admin: 1000
+    developer: 100
+    auditor: 50
+
+# ---------------------------------------------------------------------------
+# ALERTING & INCIDENT RESPONSE CONFIG
+# ---------------------------------------------------------------------------
+alerts:
+  enabled: true
+  channels:
+    slack_webhook: "${SLACK_WEBHOOK_URL}"      # Env var
+    discord_webhook: "${DISCORD_WEBHOOK_URL}"  # Env var
+  triggers:
+    - name: "PII Detection"
+      condition: "dlp_block"
+      severity: critical
+      notify_roles:
+        - admin
+        - auditor
+    - name: "Rate Limit Exceeded"
+      condition: "rate_limit_hit"
+      severity: warning
+      notify_roles:
+        - admin
+        - developer
+    - name: "Failed Authentication"
+      condition: "auth_failure"
+      threshold: 5
+      severity: high
+      notify_roles:
+        - admin
+        - auditor
+
+# ---------------------------------------------------------------------------
+# COMPLIANCE MAPPINGS & RETENTION
+# ---------------------------------------------------------------------------
+compliance:
+  frameworks:
+    - GDPR
+    - HIPAA
+    - FERPA
+    - SOC2
+  log_retention_days: 90
+  audit_trail_required: true
+  encryption_standard: "AES-256-GCM"
+  data_retention_policy: "Delete inactive records after 30 days"
+  automated_check_frequency_days: 7
