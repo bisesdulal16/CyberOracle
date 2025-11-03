@@ -37,6 +37,7 @@ htmlcov/
 # Environment files (DO NOT COMMIT)
 .env
 .env.*
+!.env.example
 
 # Docker and deployment
 *.pid

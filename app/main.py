@@ -1,5 +1,6 @@
 from fastapi import FastAPI
-from app.routes import logs
+from app.db.db import Base, engine
+from app.routes.logs import router as logs_router
 from app.middleware.dlp_filter import DLPFilterMiddleware
 
 # Initialize FastAPI application with metadata
@@ -23,5 +24,12 @@ async def health():
     return {"status": "OK", "service": "CyberOracle API"}
 
 
+@app.on_event("startup")
+async def startup_event():
+    """Initialize database tables on startup."""
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+
+
 # Include modular routes for log-related endpoints
-app.include_router(logs.router, prefix="/logs", tags=["Logs"])
+app.include_router(logs_router, prefix="/logs", tags=["Logs"])
