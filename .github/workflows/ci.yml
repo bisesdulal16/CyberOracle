@@ -1,39 +1,63 @@
 name: CyberOracle CI
 
 on:
-  push: 
+  push:
     branches: [ "main" ]
   pull_request:
     branches: [ "main" ]
-  
-jobs: 
+
+jobs:
   build-test:
     runs-on: ubuntu-latest
 
+    services:
+      # Spin up a temporary PostgreSQL container for testing
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: cyberoracle
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U postgres"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+
     steps:
-      - name: Checkout Respository
+      # Checkout repository
+      - name: Checkout Repository
         uses: actions/checkout@v4
 
+      # Set up Python environment
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-      
+
+      # Install dependencies
       - name: Install Dependencies
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-          pip install pytest pytest-cov flake8 black fastapi presidio-analyzer presidio-anonymizer
 
+      # Set environment variables for Postgres (matches your .env.example)
+      - name: Set Environment Variables
+        run: |
+          echo "DATABASE_URL=postgresql+asyncpg://postgres:postgres@localhost:5432/cyberoracle" >> $GITHUB_ENV
+
+      # Lint code for formatting and style issues
       - name: Lint with flake8 and black
         run: |
           black --check .
           flake8 .
 
+      # Run tests with database + coverage threshold
       - name: Run Tests with Coverage (>=80%)
         env:
           PYTHONPATH: .
         run: |
           pytest --cov=app --cov-fail-under=80 --maxfail=1 --disable-warnings -q
           coverage report -m
-
