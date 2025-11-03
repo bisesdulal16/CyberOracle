@@ -1,6 +1,6 @@
 import pytest
 from app.models import LogEntry
-from app.db.db import AsyncSessionLocal, Base, engine
+from app.db.db import AsyncSessionLocal, engine
 
 
 @pytest.mark.asyncio
