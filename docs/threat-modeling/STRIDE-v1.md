@@ -1,39 +1,53 @@
-# Cyberoracle Threat Modeling (STRIDE v1)
-
-**Framework:** STRIDE  
+# CyberOracle Threat Model — STRIDE v1  
 **Author:** Pradip Sapkota  
-**Date:** Week 1 Deliverable  
+**Date:** October 28, 2025  
+**Scope:** CyberOracle API Gateway (FastAPI + DLP + RBAC)  
 
 ---
 
-## System Context
-Cyberoracle integrates a secure DevSecOps pipeline. The main assets and entry points we considered for Week 1 are:
-
-- **Assets:** source code, CI/CD pipeline, build artifacts, secrets, database, logs, monitoring tools.  
-- **Entry Points:** GitHub repo (push/PR), CI/CD runners, artifact repository, deployment scripts, application APIs, log/metrics collectors.
+## Objective
+Define the first-phase security posture for CyberOracle by identifying threats to the AI gateway, data-loss-prevention pipeline, and compliance modules.
 
 ---
 
-## STRIDE Threats (Draft v1)
-
-| # | Threat | STRIDE Category | Risk (L/M/H) | Early Mitigation |
-|---|--------|-----------------|--------------|------------------|
-| 1 | Attacker pushes code by spoofing developer identity | **Spoofing** | High | Enforce MFA + SSO; signed commits; branch protection rules |
-| 2 | Build artifacts tampered in CI/CD pipeline or storage | **Tampering** | High | Use artifact repository only; generate checksums + digital signatures |
-| 3 | Risky changes with no audit trail (user denies action) | **Repudiation** | Medium | Enable log auditing for repo/CI; link commits to issue tracker |
-| 4 | Secrets/tokens accidentally written to logs | **Information Disclosure** | High | Use `.env` + secret manager; log sanitization; developer training |
-| 5 | Monitoring/alerting flood causes downtime | **Denial of Service** | Medium | Rate-limit noisy rules; auto-scaling; alert deduplication |
-| 6 | Weak DB config → unauthorized admin access | **Elevation of Privilege** | High | DB encryption at rest + TLS; RBAC; isolation; DB audit tool |
-| 7 | Dependency with known CVE pulled into build | **Tampering / Info Disclosure** | High | Run dependency/BOM checks; fail on criticals; pin versions |
-| 8 | CI runner has excessive privileges, abused to reach prod | **Elevation of Privilege** | High | Least-privileged CI tokens; scoped cloud roles; signed artifacts |
+## Assets in Scope
+| Category | Examples |
+|-----------|-----------|
+| Application | FastAPI gateway, DLP middleware, Presidio integration |
+| Data | API payloads, logs, credentials, user metadata |
+| Infrastructure | Dockerized containers, Postgres database, TLS certificates |
+| Users / Roles | Admin, Developer, Auditor (defined in [policy.yaml](./policy.yaml)) |
 
 ---
 
-## Notes
-- This is **Draft v1** of our threat model.  
-- We will refine it with data-flow diagrams and per-component analysis in Week 2–3.  
-- Each mitigation should be opened as an **issue in GitHub** and tracked through the backlog → in-progress → done boards.  
+## STRIDE Threat Analysis
+
+| STRIDE Category | Threat Example | Mitigation / Control |
+|-----------------|----------------|----------------------|
+| **Spoofing** | Forged API tokens or fake user identities | JWT authentication and RBAC policy enforcement |
+| **Tampering** | Payload modification in transit | TLS 1.3 and DLP middleware redaction of sensitive content |
+| **Repudiation** | Users denying actions | Audit logs stored in Postgres with retention policies |
+| **Information Disclosure** | Exposure of SSNs, credit cards, or API keys | Regex and Presidio-based DLP detection and blocking |
+| **Denial of Service** | Excessive API calls or rate abuse | Role-based rate limits (see policy.yaml → rate_limiting) |
+| **Elevation of Privilege** | Developer gaining admin access | Enforced RBAC roles (Admin/Dev/Auditor) with restricted permissions |
 
 ---
 
-**Deliverable complete:** This file satisfies Week 1 requirement for **Threat Modeling**.
+## Linked Security Policy
+See [`policy.yaml`](./policy.yaml) for:
+- RBAC role definitions  
+- DLP patterns and severity levels  
+- Rate-limiting controls  
+- Alert triggers and compliance frameworks  
+
+---
+
+## Notes for Capstone II
+In Capstone II this threat model will expand to include:
+- OAuth2/JWT authorization flows  
+- Terraform infrastructure-as-code and cloud security mapping  
+- Automated red-team attack simulation using n8n workflows  
+
+---
+
+**Version 1.0 — Reviewed and committed October 2025.**
