@@ -2,6 +2,7 @@ from sqlalchemy import Column, Integer, String, Text, DateTime
 from datetime import datetime
 from app.db.db import Base
 
+
 # Represents a single log entry in the database
 class LogEntry(Base):
     __tablename__ = "logs"  # Table name in PostgreSQL

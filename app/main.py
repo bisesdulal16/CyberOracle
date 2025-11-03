@@ -23,11 +23,13 @@ async def health():
     """
     return {"status": "OK", "service": "CyberOracle API"}
 
+
 @app.on_event("startup")
 async def startup_event():
     """Initialize database tables on startup."""
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+
 
 # Include modular routes for log-related endpoints
 app.include_router(logs_router, prefix="/logs", tags=["Logs"])

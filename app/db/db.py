@@ -18,9 +18,7 @@ engine = create_async_engine(DATABASE_URL, echo=True)
 
 # Create async session factory for database operations
 AsyncSessionLocal = sessionmaker(
-    bind=engine,
-    class_=AsyncSession,
-    expire_on_commit=False
+    bind=engine, class_=AsyncSession, expire_on_commit=False
 )
 
 # Base class for all ORM models

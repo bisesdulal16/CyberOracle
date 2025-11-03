@@ -20,6 +20,7 @@ async def create_log(request: Request):
     body = await request.json()
     return {"received": body}
 
+
 @router.post("/ingest")
 async def ingest_logs(request: Request):
     """
