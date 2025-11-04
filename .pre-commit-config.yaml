@@ -1,0 +1,10 @@
+repos:
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.28.0
+    hooks:
+      - id: gitleaks
+        name: gitleaks detect secrets
+        args:
+          - "--staged"
+          - "--pre-commit"
+        pass_filenames: false
