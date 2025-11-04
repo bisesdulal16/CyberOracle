@@ -18,6 +18,8 @@ TARGET_ENTITIES = [
     "CREDIT_CARD",
     "EMAIL_ADDRESS",
     "GENERIC_API_KEY",
+    "PHONE_NUMBER",  # for tests
+    "PERSON",        # for tests
 ]
 
 # ---------------------------------------------------------------------
