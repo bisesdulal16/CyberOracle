@@ -40,6 +40,25 @@ httpx==0.27.0               # Async HTTP client for testing FastAPI endpoints
 flake8==7.1.1               # Linter for enforcing code style rules
 black==24.10.0              # Automatic code formatter
 
+# -----------------------------------------------------------------------------
+# 🔹 Development & Repo Security Tools
+# -----------------------------------------------------------------------------
+# These are developer-side utilities used for maintaining repository hygiene.
+# They are not required for running the production application, but ensure
+# code quality and prevent secret leakage during development.
+#
+# pre-commit:
+#   - Runs automated checks before each Git commit.
+#   - Executes tools like gitleaks (for secret scanning) and formatters (black/flake8).
+#   - Installed globally in the team VM environment for consistent security enforcement.
+#
+# Usage:
+#   1. pip install pre-commit
+#   2. pre-commit install
+#   3. Commits will automatically trigger gitleaks and style checks.
+#
+pre-commit==4.3.0           # Git hook manager for repo security and automatio
+
 ###############################################################################
 # End of requirements.txt
 # -----------------------------------------------------------------------------
