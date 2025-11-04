@@ -1,14 +1,17 @@
 """
-dlp_presidio.py
----------------
-CyberOracle DLP module integrating Microsoft Presidio for PII detection.
-Includes restricted entity set and custom recognizers for API keys and SSNs.
+CyberOracle DLP Module — Microsoft Presidio Integration
+--------------------------------------------------------
+Detects and redacts sensitive data (SSN, credit card, email, API key)
+and triggers real-time Discord alerts when found.
 """
 
 from presidio_analyzer import AnalyzerEngine, PatternRecognizer, Pattern
 from presidio_anonymizer import AnonymizerEngine
+from app.utils.alert_manager import send_alert
 
-# Restrict to the entities we care about for MVP accuracy
+# ---------------------------------------------------------------------
+# Target entity types for MVP phase (restricted scope)
+# ---------------------------------------------------------------------
 TARGET_ENTITIES = [
     "US_SOCIAL_SECURITY_NUMBER",
     "GENERIC_SSN",
@@ -17,7 +20,11 @@ TARGET_ENTITIES = [
     "GENERIC_API_KEY",
 ]
 
-# --- Custom recognizer: API keys / tokens ---
+# ---------------------------------------------------------------------
+# Custom recognizers for higher accuracy
+# ---------------------------------------------------------------------
+
+# --- API Keys (common patterns like api_key=XXXXXX) ---
 api_key_pattern = Pattern(
     name="Generic API key",
     regex=r'(?i)(api[_-]?key|apikey|api[_-]?token)[\s:=]+["\']?([A-Za-z0-9_-]{20,})["\']?',
@@ -29,7 +36,7 @@ api_key_recognizer = PatternRecognizer(
     context=["api", "key", "token", "apikey", "api_key", "api-token"],
 )
 
-# --- Custom recognizer: Generic SSNs (lenient) ---
+# --- Generic SSN ---
 ssn_pattern = Pattern(
     name="Generic SSN",
     regex=r"\b\d{3}[- ]?\d{2}[- ]?\d{4}\b",
@@ -41,18 +48,29 @@ ssn_recognizer = PatternRecognizer(
     context=["ssn", "social", "security", "number", "identity", "tax"],
 )
 
-# Initialize analyzer and anonymizer
+# ---------------------------------------------------------------------
+# Initialize engines
+# ---------------------------------------------------------------------
 analyzer = AnalyzerEngine()
 analyzer.registry.add_recognizer(api_key_recognizer)
 analyzer.registry.add_recognizer(ssn_recognizer)
-
 anonymizer = AnonymizerEngine()
 
 
 def presidio_scan(text: str):
     """
-    Analyze and anonymize text using Microsoft Presidio with a restricted entity set.
+    Analyze and anonymize text using Microsoft Presidio with restricted entity set.
+    Automatically sends alert if any PII/PHI entity is detected.
     """
     results = analyzer.analyze(text=text, entities=TARGET_ENTITIES, language="en")
+
+    if results:
+        entity_types = sorted({r.entity_type for r in results})
+        send_alert(
+            f"DLP Alert: Sensitive data detected — {', '.join(entity_types)}",
+            severity="high",
+            source="presidio_dlp",
+        )
+
     anonymized = anonymizer.anonymize(text=text, analyzer_results=results)
     return anonymized.text, [r.entity_type for r in results]

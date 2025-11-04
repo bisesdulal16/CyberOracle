@@ -40,6 +40,9 @@ httpx==0.27.0               # Async HTTP client for testing FastAPI endpoints
 flake8==7.1.1               # Linter for enforcing code style rules
 black==24.10.0              # Automatic code formatter
 
+# For upload file 
+python-multipart
+
 ###############################################################################
 # End of requirements.txt
 # -----------------------------------------------------------------------------
