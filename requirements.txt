@@ -1,49 +1,82 @@
-###############################################################################
-# CyberOracle Backend — Python Dependencies
-# -----------------------------------------------------------------------------
-# This file lists all Python dependencies required for running, testing, and
-# linting the CyberOracle FastAPI backend.
-#
-# To install everything:
-#   pip install -r requirements.txt
-###############################################################################
-
-# -----------------------------------------------------------------------------
-# 🔹 Core Application Dependencies
-# -----------------------------------------------------------------------------
-fastapi==0.118.0            # Web framework for building the CyberOracle API
-uvicorn==0.37.0             # ASGI server to run FastAPI
-pydantic==2.12.0            # Data validation and settings management
-sqlalchemy[asyncio]==2.0.36  # Async ORM for Postgres integration
-asyncpg==0.29.0             # Async Postgres driver
-psycopg2-binary==2.9.10     # Synchronous Postgres driver (fallback)
-python-dotenv==1.0.1        # Loads environment variables from .env files
-
-# -----------------------------------------------------------------------------
-# 🔹 Data Privacy & DLP Modules
-# -----------------------------------------------------------------------------
-presidio-analyzer==2.2.357   # Microsoft Presidio — detects sensitive data
-presidio-anonymizer==2.2.357 # Microsoft Presidio — anonymizes sensitive data
-
-# -----------------------------------------------------------------------------
-# 🔹 Testing & Coverage Tools
-# -----------------------------------------------------------------------------
-pytest==8.3.3               # Core testing framework
-pytest-asyncio==0.24.0      # Async test support for pytest
-pytest-cov==5.0.0           # Test coverage reporting
-coverage==7.6.1             # Standalone coverage reporting
-httpx==0.27.0               # Async HTTP client for testing FastAPI endpoints
-
-# -----------------------------------------------------------------------------
-# 🔹 Code Quality & Linting
-# -----------------------------------------------------------------------------
-flake8==7.1.1               # Linter for enforcing code style rules
-black==24.10.0              # Automatic code formatter
-
-###############################################################################
-# End of requirements.txt
-# -----------------------------------------------------------------------------
-# Notes:
-#  • Keep versions pinned for reproducible builds.
-#  • When updating, run `pip freeze > requirements.txt` to sync with CI.
-###############################################################################
+aiofiles==25.1.0
+aiosqlite==0.21.0
+annotated-doc==0.0.3
+annotated-types==0.7.0
+anyio==4.11.0
+backports.asyncio.runner==1.2.0
+bcrypt==5.0.0
+blis==1.3.0
+catalogue==2.0.10
+certifi==2025.10.5
+cffi==2.0.0
+charset-normalizer==3.4.4
+click==8.3.0
+cloudpathlib==0.23.0
+confection==0.1.5
+cryptography==44.0.3
+cymem==2.0.11
+ecdsa==0.19.1
+en_core_web_lg @ https://github.com/explosion/spacy-models/releases/download/en_core_web_lg-3.8.0/en_core_web_lg-3.8.0-py3-none-any.whl
+exceptiongroup==1.3.0
+fastapi==0.120.1
+filelock==3.20.0
+greenlet==3.2.4
+h11==0.16.0
+httpcore==1.0.9
+httpx==0.28.1
+idna==3.11
+iniconfig==2.3.0
+Jinja2==3.1.6
+langcodes==3.5.0
+language_data==1.3.0
+marisa-trie==1.3.1
+markdown-it-py==4.0.0
+MarkupSafe==3.0.3
+mdurl==0.1.2
+murmurhash==1.0.13
+numpy==2.2.6
+packaging==25.0
+passlib==1.7.4
+phonenumbers==9.0.17
+pluggy==1.6.0
+preshed==3.0.10
+presidio_analyzer==2.2.360
+presidio_anonymizer==2.2.360
+psycopg2-binary==2.9.11
+pyasn1==0.6.1
+pycparser==2.23
+pydantic==2.12.3
+pydantic_core==2.41.4
+Pygments==2.19.2
+pytest==8.4.2
+pytest-asyncio==1.2.0
+python-dotenv==1.2.1
+python-jose==3.5.0
+PyYAML==6.0.3
+regex==2025.11.3
+requests==2.32.5
+requests-file==3.0.1
+rich==14.2.0
+rsa==4.9.1
+shellingham==1.5.4
+six==1.17.0
+smart_open==7.4.3
+sniffio==1.3.1
+spacy==3.8.7
+spacy-legacy==3.0.12
+spacy-loggers==1.0.5
+SQLAlchemy==2.0.44
+srsly==2.5.1
+starlette==0.49.1
+thinc==8.3.6
+tldextract==5.3.0
+tomli==2.3.0
+tqdm==4.67.1
+typer==0.20.0
+typing-inspection==0.4.2
+typing_extensions==4.15.0
+urllib3==2.5.0
+uvicorn==0.38.0
+wasabi==1.1.3
+weasel==0.4.1
+wrapt==2.0.0

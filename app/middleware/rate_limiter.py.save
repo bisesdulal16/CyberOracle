@@ -1,0 +1,44 @@
+"""
+Rate Limiting Middleware
+------------------------
+Prevents brute-force or DDoS-style traffic by tracking
+requests per client IP within a fixed time window.
+"""
+
+import time
+from fastapi import Request, HTTPException
+from starlette.middleware.base import BaseHTTPMiddleware
+from app.middleware import rate_limiter
+
+rate_limiter.RATE_LIMIT = 5
+rate_limiter.TIME_WINDOW = 
+requests_log = {}
+
+class RateLimitMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        client_ip = request.client.host
+        now = time.time()
+
+        # Initialize tracking list if first request
+        if client_ip not in requests_log:
+            requests_log[client_ip] = []
+
+        # Keep only timestamps within the valid window
+        requests_log[client_ip] = [
+            t for t in requests_log[client_ip] if now - t < TIME_WINDOW
+        ]
+
+        # Check BEFORE logging this request
+        # because 5 allowed requests mean the 6th should be blocked.
+        if len(requests_log[client_ip]) >= RATE_LIMIT:
+            raise HTTPException(
+                status_code=429,
+                detail=f"Rate limit exceeded ({RATE_LIMIT} reqs per {TIME_WINDOW}s)"
+            )
+
+        # Log the new request
+        requests_log[client_ip].append(now)
+
+        return await call_next(request)
+
+
