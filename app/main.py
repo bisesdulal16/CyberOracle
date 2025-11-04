@@ -3,6 +3,8 @@ from app.db.db import Base, engine
 from app.routes.logs import router as logs_router
 from app.middleware.dlp_filter import DLPFilterMiddleware
 
+from app.routes import logs, secure
+from app.middleware.dlp_filter import DLPFilterMiddleware
 # Initialize FastAPI application with metadata
 app = FastAPI(
     title="CyberOracle Gateway",
@@ -32,4 +34,5 @@ async def startup_event():
 
 
 # Include modular routes for log-related endpoints
-app.include_router(logs_router, prefix="/logs", tags=["Logs"])
+app.include_router(logs.router, prefix="/logs", tags=["Logs"])
+app.include_router(secure.router, prefix="/secure", tags=["Security"])
