@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 from app.db.db import Base, engine
 from app.routes.logs import router as logs_router
+from app.routes.dlp import router as dlp_router  # import DLP routes
 from app.middleware.dlp_filter import DLPFilterMiddleware
 
 # Initialize FastAPI application with metadata
@@ -31,5 +32,6 @@ async def startup_event():
         await conn.run_sync(Base.metadata.create_all)
 
 
-# Include modular routes for log-related endpoints
+# Include modular routes
 app.include_router(logs_router, prefix="/logs", tags=["Logs"])
+app.include_router(dlp_router, prefix="/api", tags=["DLP"])
