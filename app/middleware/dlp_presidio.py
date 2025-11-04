@@ -19,7 +19,7 @@ TARGET_ENTITIES = [
     "EMAIL_ADDRESS",
     "GENERIC_API_KEY",
     "PHONE_NUMBER",  # for tests
-    "PERSON",        # for tests
+    "PERSON",  # for tests
 ]
 
 # ---------------------------------------------------------------------

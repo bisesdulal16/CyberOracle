@@ -5,6 +5,7 @@ from app.middleware.dlp_presidio import presidio_scan
 
 router = APIRouter()
 
+
 @router.post("/scan")
 async def scan_text(payload: dict = Body(...)):
     """
