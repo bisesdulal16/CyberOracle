@@ -41,6 +41,66 @@ flake8==7.1.1               # Linter for enforcing code style rules
 black==24.10.0              # Automatic code formatter
 
 ###############################################################################
+# CyberOracle Backend — Python Dependencies
+# -----------------------------------------------------------------------------
+# This file lists all Python dependencies required for running, testing, and
+# linting the CyberOracle FastAPI backend.
+#
+# To install everything:
+#   pip install -r requirements.txt
+###############################################################################
+
+# -----------------------------------------------------------------------------
+# 🔹 Core Application Dependencies
+# -----------------------------------------------------------------------------
+fastapi==0.118.0            # Web framework for building the CyberOracle API
+uvicorn==0.37.0             # ASGI server to run FastAPI
+pydantic==2.12.0            # Data validation and settings management
+sqlalchemy[asyncio]==2.0.36  # Async ORM for Postgres integration
+asyncpg==0.29.0             # Async Postgres driver
+psycopg2-binary==2.9.10     # Synchronous Postgres driver (fallback)
+python-dotenv==1.0.1        # Loads environment variables from .env files
+
+# -----------------------------------------------------------------------------
+# 🔹 Data Privacy & DLP Modules
+# -----------------------------------------------------------------------------
+presidio-analyzer==2.2.357   # Microsoft Presidio — detects sensitive data
+presidio-anonymizer==2.2.357 # Microsoft Presidio — anonymizes sensitive data
+
+# -----------------------------------------------------------------------------
+# 🔹 Testing & Coverage Tools
+# -----------------------------------------------------------------------------
+pytest==8.3.3               # Core testing framework
+pytest-asyncio==0.24.0      # Async test support for pytest
+pytest-cov==5.0.0           # Test coverage reporting
+coverage==7.6.1             # Standalone coverage reporting
+httpx==0.27.0               # Async HTTP client for testing FastAPI endpoints
+
+# -----------------------------------------------------------------------------
+# 🔹 Code Quality & Linting
+# -----------------------------------------------------------------------------
+flake8==7.1.1               # Linter for enforcing code style rules
+black==24.10.0              # Automatic code formatter
+
+# -----------------------------------------------------------------------------
+# 🔹 Development & Repo Security Tools
+# -----------------------------------------------------------------------------
+# These are developer-side utilities used for maintaining repository hygiene.
+# They ensure code quality and prevent secret leakage during development.
+#
+# pre-commit:
+#   - Runs automated checks before each Git commit.
+#   - Executes tools like gitleaks (for secret scanning) and formatters (black/flake8).
+#   - Installed globally in the team VM environment for consistent security enforcement.
+#
+# Usage (one-time setup after pip install):
+#   1. pip install -r requirements.txt
+#   2. pre-commit install
+#      → This will activate hooks located in .pre-commit-config.yaml
+#
+pre-commit==4.3.0           # Git hook manager for repo security and automation
+
+###############################################################################
 # End of requirements.txt
 # -----------------------------------------------------------------------------
 # Notes:
