@@ -12,6 +12,7 @@ else:
 
 requests_log = {}
 
+
 class RateLimitMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
         try:
