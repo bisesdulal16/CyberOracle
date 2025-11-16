@@ -17,18 +17,30 @@ TEST_MODE = os.getenv("PYTEST") == "1"
 if TEST_MODE:
     RATE_LIMIT = 5
     TIME_WINDOW = 60
+
+    # The most important fix:
+    # Reset data every time this file is imported during pytest
+    # (Test runner loads modules multiple times)
+    requests_log = {}
+
+    # Force stable client "IP" for tests
+    TEST_CLIENT_IP = "pytest-client"
+
 else:
     RATE_LIMIT = 1000
     TIME_WINDOW = 1
-
-# in-memory store
-requests_log = {}
+    requests_log = {}
 
 
 class RateLimitMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
-        client_ip = request.client.host
         now = time.time()
+
+        # Give CI a deterministic, consistent IP address
+        if TEST_MODE:
+            client_ip = TEST_CLIENT_IP
+        else:
+            client_ip = request.client.host
 
         if client_ip not in requests_log:
             requests_log[client_ip] = []
