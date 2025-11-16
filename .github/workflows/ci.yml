@@ -46,9 +46,9 @@ jobs:
       # Set environment variables for Postgres (matches your .env.example)
       - name: Set Environment Variables
         run: |
-          echo "DATABASE_URL=postgresql+asyncpg://postgres:postgres@localhost:5432/cyberoracle" >> $GITHUB_ENV
           echo "PYTEST=1" >> $GITHUB_ENV
-
+          echo "DATABASE_URL=postgresql+asyncpg://postgres:postgres@localhost:5432/cyberoracle" >> $GITHUB_ENV
+          
       # Lint code for formatting and style issues
       - name: Lint with flake8 and black
         run: |
