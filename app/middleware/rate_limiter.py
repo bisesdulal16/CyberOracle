@@ -21,18 +21,21 @@ else:
     RATE_LIMIT = 1000
     TIME_WINDOW = 1
 
-# in-memory store
+# global in-memory store
 requests_log = {}
 
 
 class RateLimitMiddleware(BaseHTTPMiddleware):
+    def __init__(self, app):
+        super().__init__(app)
+
+        # Clear log ONCE when test starts, not per request
+        if TEST_MODE:
+            requests_log.clear()
+
     async def dispatch(self, request: Request, call_next):
         client_ip = request.client.host
         now = time.time()
-
-        # Reset state on every request in test mode
-        if TEST_MODE:
-            requests_log.clear()
 
         if client_ip not in requests_log:
             requests_log[client_ip] = []
@@ -51,7 +54,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
                 },
             )
 
-        # Log request timestamp
+        # Log request
         requests_log[client_ip].append(now)
 
         return await call_next(request)
