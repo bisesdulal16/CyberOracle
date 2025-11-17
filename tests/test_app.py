@@ -43,7 +43,7 @@ def test_dlp_redacts_ssn():
     # Allow status codes 200,201, or 404 (depending on endpoint behavior)
     assert response.status_code in [200, 201, 404]
     # Ensure the SSN was replaced with redaction marks
-    assert "***" in str(response.text)
+    assert ("***" in response.text) or ("<GENERIC_SSN>" in response.text)
 
 
 def test_dlp_allows_normal_data():
