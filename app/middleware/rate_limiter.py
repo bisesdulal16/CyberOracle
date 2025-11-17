@@ -28,7 +28,7 @@ requests_log = {}
 class RateLimitMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
         # Disable rate limiting during pytest
-        if TEST_MODE:
+        if TEST_MODE and not os.getenv("DISABLE_RATE_LIMIT_TEST"):
             return await call_next(request)
 
         client_ip = request.client.host
