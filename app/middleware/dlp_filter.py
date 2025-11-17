@@ -68,9 +68,8 @@ class DLPFilterMiddleware(BaseHTTPMiddleware):
 
         # If any entities were detected anywhere in the request, send one alert
         if detected_entities:
-            message = (
-                "DLP Alert: Sensitive data detected in request — "
-                + ", ".join(sorted(detected_entities))
+            message = "DLP Alert: Sensitive data detected in request — " + ", ".join(
+                sorted(detected_entities)
             )
 
             send_alert(
