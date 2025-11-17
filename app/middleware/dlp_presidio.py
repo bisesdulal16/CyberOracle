@@ -59,14 +59,16 @@ analyzer.registry.add_recognizer(ssn_recognizer)
 anonymizer = AnonymizerEngine()
 
 
-def presidio_scan(text: str):
+def presidio_scan(text: str, alert: bool = True):
     """
     Analyze and anonymize text using Microsoft Presidio with restricted entity set.
-    Automatically sends alert if any PII/PHI entity is detected.
+    Optionally sends alert if any PII/PHI entity is detected (alert=True).
+    Returns:
+        anonymized_text (str), entities (List[str])
     """
     results = analyzer.analyze(text=text, entities=TARGET_ENTITIES, language="en")
 
-    if results:
+    if results and alert:
         entity_types = sorted({r.entity_type for r in results})
         send_alert(
             f"DLP Alert: Sensitive data detected — {', '.join(entity_types)}",

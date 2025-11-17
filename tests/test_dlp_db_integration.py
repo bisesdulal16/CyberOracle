@@ -24,4 +24,4 @@ async def test_dlp_and_db_flow():
 
     # Validate successful response and proper redaction
     assert response.status_code == 200
-    assert "***" in response.text or "REDACTED" in response.text
+    assert ("***" in response.text) or ("<GENERIC_SSN>" in response.text)

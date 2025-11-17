@@ -4,30 +4,43 @@ DLP (Data Loss Prevention) Middleware
 Purpose:
 Intercepts incoming POST, PUT, and PATCH requests and scans them for
 sensitive data such as SSNs, credit card numbers, emails, or API keys.
-If detected, the values are redacted ("***") before the data reaches the
+If detected, the values are redacted before the data reaches the
 main application or database layer.
 
-This ensures sensitive information is never logged, stored, or leaked.
+
+This version uses the central Presidio-based DLP engine plus custom patterns
+from app.middleware.dlp_presidio, and triggers a single alert per request.
 """
 
-import re
 import json
+from typing import Any, Set
+
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 
-# Dictionary of regex patterns that match sensitive data formats
-SENSITIVE_PATTERNS = {
-    "ssn": r"\b\d{3}-\d{2}-\d{4}\b",
-    "credit_card": (
-        r"\b(?:\d[ -]*?){13,16}\b"
-    ),  # matches 13–16 digit credit card numbers with/without spaces or dashes
-    "email": (
-        r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}"
-    ),  # matches standard email address formats
-    "api_key": (
-        r"\b[A-Za-z0-9]{32,}\b"
-    ),  # matches long alphanumeric strings often used as API keys or tokens
-}
+from app.middleware.dlp_presidio import presidio_scan
+from app.utils.alert_manager import send_alert
+
+
+def _sanitize_value(value: Any, detected_entities: Set[str]) -> Any:
+    """
+    Recursively sanitize a value:
+    - If it's a string, run presidio_scan(alert=False) and collect entities.
+    - If it's a dict or list, walk through and sanitize nested values.
+    - Otherwise, return as-is.
+    """
+    if isinstance(value, str):
+        redacted_text, entities = presidio_scan(value, alert=False)
+        detected_entities.update(entities)
+        return redacted_text
+
+    if isinstance(value, dict):
+        return {k: _sanitize_value(v, detected_entities) for k, v in value.items()}
+
+    if isinstance(value, list):
+        return [_sanitize_value(item, detected_entities) for item in value]
+
+    return value
 
 
 class DLPFilterMiddleware(BaseHTTPMiddleware):
@@ -37,25 +50,34 @@ class DLPFilterMiddleware(BaseHTTPMiddleware):
     """
 
     async def dispatch(self, request: Request, call_next):
+        detected_entities: Set[str] = set()
+
         # Target only data-carrying methods
         if request.method in {"POST", "PUT", "PATCH"}:
             try:
                 body = await request.json()
             except Exception:
-                body = {}
+                body = None
 
-            redacted = False
+            if isinstance(body, dict):
+                sanitized_body = _sanitize_value(body, detected_entities)
 
-            for key, value in body.items():
-                if isinstance(value, str):
-                    for _, pattern in SENSITIVE_PATTERNS.items():
-                        if re.search(pattern, value):
-                            body[key] = re.sub(pattern, "***", value)
-                            redacted = True
+                # If anything was actually detected and redacted, replace request body
+                if detected_entities:
+                    request._body = json.dumps(sanitized_body).encode("utf-8")
 
-            # Replace the request body with the sanitized version if any sensitive data was found
-            if redacted:
-                request._body = json.dumps(body).encode("utf-8")
+        # If any entities were detected anywhere in the request, send one alert
+        if detected_entities:
+            message = (
+                "DLP Alert: Sensitive data detected in request — "
+                + ", ".join(sorted(detected_entities))
+            )
+
+            send_alert(
+                message,
+                severity="high",
+                source="dlp_middleware",
+            )
 
         response = await call_next(request)
         return response

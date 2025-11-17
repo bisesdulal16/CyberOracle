@@ -34,6 +34,7 @@ pytest-asyncio==0.24.0      # Async test support for pytest
 pytest-cov==5.0.0           # Test coverage reporting
 coverage==7.6.1             # Standalone coverage reporting
 httpx==0.27.0               # Async HTTP client for testing FastAPI endpoints
+pytest-dotenv==0.5.2        # Load .env.test automatically during pytest
 
 # -----------------------------------------------------------------------------
 # 🔹 Code Quality & Linting
