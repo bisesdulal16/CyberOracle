@@ -11,6 +11,7 @@ Security Notes (OWASP-ASVS 9.2):
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
 from app.utils.logger import log_request, secure_log, mask_sensitive
+from app.schemas.log_schema import LogIngest  # NEW
 
 router = APIRouter()
 
@@ -36,11 +37,12 @@ async def create_log(request: Request):
     body = await request.json()
     masked = mask_sensitive(str(body))
     secure_log(f"Received simulated log payload: {masked}")
+
     return {"received": body, "masked_representation": masked}
 
 
 @router.post("/ingest")
-async def ingest_logs(request: Request):
+async def ingest_logs(payload: LogIngest):
     """
     Main endpoint for log ingestion.
     Stores masked logs in the database.
@@ -49,7 +51,8 @@ async def ingest_logs(request: Request):
     --------------------------------
     input → mask_sensitive → log_request → DB insert
     """
-    data = await request.json()
+    # Convert incoming model to dict
+    data = payload.model_dump()
 
     # Mask before database storage
     masked_msg = mask_sensitive(str(data))
