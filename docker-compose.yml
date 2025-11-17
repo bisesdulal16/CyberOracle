@@ -42,6 +42,18 @@ services:
       - GF_SECURITY_ADMIN_PASSWORD=admin
     depends_on:
       - db
+
+  # Nexus Repository Manager (UI + Docker registry)
+  nexus:
+    image: sonatype/nexus3:3.68.0
+    container_name: cyberoracle-nexus
+    restart: unless-stopped
+    ports:
+      - "8081:8081"   # Nexus Web UI
+      - "8083:8083"   # Docker registry (hosted repo)
+    volumes:
+      - nexus-data:/nexus-data
       
 volumes:
   pgdata:
+  nexus-data:
