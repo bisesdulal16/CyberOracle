@@ -59,6 +59,7 @@ jobs:
       - name: Run Tests with Coverage (>=80%)
         env:
           PYTHONPATH: .
+          PYTEST: ${{ env.PYTEST }}
         run: |
           pytest --cov=app --cov-fail-under=80 --maxfail=1 --disable-warnings -q
           coverage report -m
