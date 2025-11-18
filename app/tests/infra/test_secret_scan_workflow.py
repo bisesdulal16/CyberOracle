@@ -17,7 +17,9 @@ def test_secret_scan_workflow_file_exists():
     """The TruffleHog GitHub Actions workflow file should exist."""
     repo_root = _get_repo_root()
     workflow_path = repo_root / ".github" / "workflows" / "secret-scan.yml"
-    assert workflow_path.exists(), f"Expected workflow file at {workflow_path}, but it does not exist."
+    assert (
+        workflow_path.exists()
+    ), f"Expected workflow file at {workflow_path}, but it does not exist."
 
 
 def test_secret_scan_workflow_uses_trufflehog():
