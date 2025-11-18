@@ -1,6 +1,5 @@
 from httpx import AsyncClient
 from app.main import app
-from app.utils.alert_manager import send_alert
 
 import pytest
 from unittest.mock import patch

@@ -6,7 +6,6 @@ Detects abnormal payloads, suspicious keywords, and excessive request rates.
 Triggers alert_manager.send_alert() when anomalies are found.
 """
 
-import json
 import time
 from fastapi import Request
 from app.utils.alert_manager import send_alert
@@ -27,7 +26,7 @@ SUSPICIOUS_KEYWORDS = [
 
 
 async def anomaly_detector(request: Request, call_next):
-    
+
     client_ip = request.client.host
     now = time.time()
 
