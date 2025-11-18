@@ -1,0 +1,6 @@
+projectKey=cyberoracle
+serverUrl=http://localhost:9100
+serverVersion=9.9.8.100196
+dashboardUrl=http://localhost:9100/dashboard?id=cyberoracle
+ceTaskId=AZqU2n4KhuvDUNcCvQB6
+ceTaskUrl=http://localhost:9100/api/ce/task?id=AZqU2n4KhuvDUNcCvQB6
