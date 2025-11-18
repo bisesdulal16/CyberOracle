@@ -23,7 +23,7 @@ services:
     container_name: cyberoracle-api
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
     volumes:
-      - .:/app    # Enables live code reloads during development
+      - .:/app
     ports:
       - "8000:8000"
     environment:
@@ -31,7 +31,7 @@ services:
     depends_on:
       - db
 
-    # Grafana monitoring dashboard
+  # Grafana monitoring dashboard
   grafana:
     image: grafana/grafana:latest
     container_name: cyberoracle-grafana
@@ -42,6 +42,9 @@ services:
       - GF_SECURITY_ADMIN_PASSWORD=admin
     depends_on:
       - db
-      
+    volumes:
+      - grafana_data:/var/lib/grafana   # <-- 🚀 THIS FIXES YOUR ISSUE
+
 volumes:
   pgdata:
+  grafana_data:   # <-- 🚀 NEW PERSISTENT VOLUME
