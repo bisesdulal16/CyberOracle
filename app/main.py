@@ -4,6 +4,7 @@ from app.routes.logs import router as logs_router
 from app.routes.dlp import router as dlp_router  # import DLP routes
 from app.middleware.dlp_filter import DLPFilterMiddleware
 from app.middleware.rate_limiter import RateLimitMiddleware
+from app.utils.exception_handler import secure_exception_handler
 
 # Initialize FastAPI application with metadata
 app = FastAPI(
@@ -17,6 +18,9 @@ app.add_middleware(DLPFilterMiddleware)
 
 # Register cutstom Rate-Limiting middleware
 app.add_middleware(RateLimitMiddleware)
+
+# Register custom Exception Handler middleware
+app.add_exception_handler(Exception, secure_exception_handler)
 
 
 # Health check endpoint to verify uptime and API status
