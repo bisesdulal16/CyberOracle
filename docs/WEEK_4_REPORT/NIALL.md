@@ -37,6 +37,9 @@ Expand automated test coverage for security-critical modules (authentication and
 | Authentication tests passing | ✅ JWT + API key tests validated | <img width="1919" height="95" alt="image" src="https://github.com/user-attachments/assets/80c3a254-af31-4001-a6ee-36596d6ae932" />|
 | Rate-limiting tests passing | ✅ 6th request blocked as expected | <img width="1919" height="738" alt="image" src="https://github.com/user-attachments/assets/bb11dd47-4c93-4467-a04d-a8b1d5de16f1" />|
 | All tests passing together | ✅ Pytest run succeeds locally | <img width="1919" height="776" alt="image" src="https://github.com/user-attachments/assets/2e8de274-43fe-4503-bbde-6be259413d5a" /> |
+| CI Pipeline test stage | ✅ CI triggered on PR and passed | <img width="1489" height="86" alt="image" src="https://github.com/user-attachments/assets/9c620b08-59c2-4450-a99c-be24497d7436" /> <img width="1483" height="87" alt="image" src="https://github.com/user-attachments/assets/7989a1ab-6cae-46f5-b372-a5040a2e126c" /> <img width="1430" height="90" alt="image" src="https://github.com/user-attachments/assets/de2b701e-2228-4c26-b77b-a5a18e7dc871" /> |
+| Coverage ≥ 80 percent | ✅ Verified through coverage report | <img width="1477" height="743" alt="image" src="https://github.com/user-attachments/assets/48ec26ab-90dc-4c48-9848-25c835591734" /> <img width="1381" height="723" alt="image" src="https://github.com/user-attachments/assets/3d05855f-98ac-4d03-9603-bd586ab75ac9" />|
+
 
 ---
 
