@@ -23,7 +23,7 @@ services:
     container_name: cyberoracle-api
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
     volumes:
-      - .:/app    # Enables live code reloads during development
+      - .:/app
     ports:
       - "8000:8000"
     environment:
@@ -31,7 +31,7 @@ services:
     depends_on:
       - db
 
-    # Grafana monitoring dashboard
+  # Grafana monitoring dashboard
   grafana:
     image: grafana/grafana:latest
     container_name: cyberoracle-grafana
@@ -42,18 +42,9 @@ services:
       - GF_SECURITY_ADMIN_PASSWORD=admin
     depends_on:
       - db
-
-  # Nexus Repository Manager (UI + Docker registry)
-  nexus:
-    image: sonatype/nexus3:3.68.0
-    container_name: cyberoracle-nexus
-    restart: unless-stopped
-    ports:
-      - "8081:8081"   # Nexus Web UI
-      - "8083:8083"   # Docker registry (hosted repo)
     volumes:
-      - nexus-data:/nexus-data
-      
+      - grafana_data:/var/lib/grafana   # <-- 🚀 THIS FIXES YOUR ISSUE
+
 volumes:
   pgdata:
-  nexus-data:
+  grafana_data:   # <-- 🚀 NEW PERSISTENT VOLUME
