@@ -1,0 +1,112 @@
+name: Docker Build & Publish (Nexus, Auto Versioning)
+
+on:
+  push:
+    branches:
+      - main
+      # to add other branches:
+      # - release/*
+      # - feature_monitoring
+
+permissions:
+  contents: write     # needed to push tags
+  packages: write
+
+env:
+  IMAGE_NAME: cyberoracle-api
+
+jobs:
+  build-and-publish:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # we need tags
+
+      - name: Determine bump type from commit message
+        id: bump_type
+        run: |
+          msg="${{ github.event.head_commit.message }}"
+          bump="patch"
+          if [[ "$msg" == *"#major"* ]]; then
+            bump="major"
+          elif [[ "$msg" == *"#minor"* ]]; then
+            bump="minor"
+          fi
+          echo "bump=$bump" >> "$GITHUB_OUTPUT"
+
+      - name: Calculate next version tag
+        id: version
+        run: |
+          chmod +x scripts/bump_version.sh
+          TAG=$(scripts/bump_version.sh "${{ steps.bump_type.outputs.bump }}")
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          # strip leading 'v' for the Docker tag
+          VERSION="${TAG#v}"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Next tag: $TAG"
+          echo "Docker version: $VERSION"
+
+      - name: Compute build timestamp
+        id: meta
+        run: |
+          # UTC timestamp in format: 2025-11-18_0400
+          TS=$(date -u +'%Y-%m-%d_%H%M')
+          echo "timestamp=$TS" >> "$GITHUB_OUTPUT"
+          echo "Build timestamp: $TS"
+
+      - name: Log in to Nexus Docker registry
+        run: |
+          echo "${{ secrets.NEXUS_PASSWORD }}" | docker login \
+            "${{ secrets.NEXUS_DOCKER_REGISTRY }}" \
+            -u "${{ secrets.NEXUS_USERNAME }}" \
+            --password-stdin
+
+      - name: Build Docker image
+        run: |
+          FULL_IMAGE="${{ secrets.NEXUS_DOCKER_REGISTRY }}/${{ env.IMAGE_NAME }}"
+          VERSION="${{ steps.version.outputs.version }}"
+          TS="${{ steps.meta.outputs.timestamp }}"
+
+          echo "Building image:"
+          echo "  $FULL_IMAGE:$VERSION"
+          echo "  $FULL_IMAGE:latest"
+          echo "  $FULL_IMAGE:$TS"
+
+          docker build \
+            -t "$FULL_IMAGE:$VERSION" \
+            -t "$FULL_IMAGE:latest" \
+            -t "$FULL_IMAGE:$TS" \
+            .
+
+      - name: Push Docker image to Nexus
+        run: |
+          FULL_IMAGE="${{ secrets.NEXUS_DOCKER_REGISTRY }}/${{ env.IMAGE_NAME }}"
+          VERSION="${{ steps.version.outputs.version }}"
+          TS="${{ steps.meta.outputs.timestamp }}"
+
+          echo "Pushing $FULL_IMAGE:$VERSION"
+          docker push "$FULL_IMAGE:$VERSION"
+
+          echo "Pushing $FULL_IMAGE:latest"
+          docker push "$FULL_IMAGE:latest"
+
+          echo "Pushing $FULL_IMAGE:$TS"
+          docker push "$FULL_IMAGE:$TS"
+
+      - name: Create and push git tag
+        run: |
+          TAG="${{ steps.version.outputs.tag }}"
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          # Avoid failing if tag already exists
+          if git rev-parse "$TAG" >/dev/null 2>&1; then
+            echo "Tag $TAG already exists, skipping tag creation."
+          else
+            git tag "$TAG"
+            git push origin "$TAG"
+          fi
