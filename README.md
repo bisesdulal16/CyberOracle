@@ -77,5 +77,77 @@ We use [GitHub Issues](https://github.com/your-org/cyberoracle/issues) with the 
 
 ---
 
+🟩 **Deployment Guide**
+=======================
+
+**1\. SSH Into the Server**
+---------------------------
+
+`   ssh STUDENTS\\bd0495@cyberoracle.eng.unt.edu   `
+
+**2\. Navigate to the Project Directory**
+-----------------------------------------
+
+`   cd /opt/CyberOracle   `
+
+**3\. Pull the Latest Changes From GitHub**
+-------------------------------------------
+
+Make sure no local changes exist. If unsure, reset safely:
+
+`   git fetch --all  git reset --hard origin/main   `
+
+Then pull:
+
+`   git pull origin main   `
+
+**4\. Rebuild the Docker Image**
+--------------------------------
+
+Every backend update requires a rebuild:
+
+`   sudo docker build -t cyberoracle-api .   `
+
+**5\. Restart the Docker Stack**
+--------------------------------
+
+This stops old containers and applies the new image:
+
+`   sudo docker compose down  sudo docker compose up -d   `
+
+**6\. Verify Containers Are Running**
+-------------------------------------
+
+`   sudo docker ps   `
+
+Expected:
+
+*   cyberoracle-api → running
+    
+*   cyberoracle-db → running
+    
+*   cyberoracle-grafana → running
+    
+
+**7\. Test the API Health**
+---------------------------
+
+`   curl http://localhost:8000/health   `
+
+Expected output:
+
+`   {"status": "ok", "message": "API healthy"}   `
+
+**8\. (Optional) View Logs**
+----------------------------
+
+Backend logs:
+
+`   sudo docker logs cyberoracle-api   `
+
+Compose logs:
+
+`   sudo docker compose logs -f   `
+
 ## License
 This project is licensed under the [MIT License](LICENSE).
