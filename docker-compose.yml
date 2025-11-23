@@ -45,6 +45,22 @@ services:
     volumes:
       - grafana_data:/var/lib/grafana   # <-- 🚀 THIS FIXES YOUR ISSUE
 
+  nexus:
+    image: sonatype/nexus3:3.68.0
+    container_name: cyberoracle-nexus
+    restart: unless-stopped
+    ports:
+      # Nexus UI
+      - "8081:8081"
+      # Docker registry (we mapped this earlier to 8083)
+      - "8083:8083"
+    volumes:
+      - nexus-data:/nexus-data
+    environment:
+      - INSTALL4J_ADD_VM_PARAMS=-Xms1200m -Xmx1200m -XX:MaxDirectMemorySize=2g
+
+
 volumes:
   pgdata:
+  nexus-data:
   grafana_data:   # <-- 🚀 NEW PERSISTENT VOLUME
