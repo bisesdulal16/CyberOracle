@@ -34,17 +34,18 @@ jobs:
           registry: ${{ secrets.NEXUS_DOCKER_REGISTRY }}
           username: ${{ secrets.NEXUS_USERNAME }}
           password: ${{ secrets.NEXUS_PASSWORD }}
-
+  
       - name: Build Docker image
         run: |
-          IMAGE="${{ secrets.NEXUS_DOCKER_REGISTRY }}/${{ env.IMAGE_NAME }}"
+          IMAGE="${{ secrets.NEXUS_IMAGE_PREFIX }}/${{ env.IMAGE_NAME }}"
           TAG="${{ steps.vars.outputs.tag }}"
           echo "Building $IMAGE:$TAG"
           docker build -t "$IMAGE:$TAG" -t "$IMAGE:latest" .
-
+  
       - name: Push Docker image
         run: |
-          IMAGE="${{ secrets.NEXUS_DOCKER_REGISTRY }}/${{ env.IMAGE_NAME }}"
+          IMAGE="${{ secrets.NEXUS_IMAGE_PREFIX }}/${{ env.IMAGE_NAME }}"
           TAG="${{ steps.vars.outputs.tag }}"
+          echo "Pushing $IMAGE:$TAG"
           docker push "$IMAGE:$TAG"
           docker push "$IMAGE:latest"
