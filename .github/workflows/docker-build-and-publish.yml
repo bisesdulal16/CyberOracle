@@ -4,12 +4,11 @@ on:
   push:
     branches:
       - main
-      # to add other branches:
-      # - release/*
-      # - feature_monitoring
+      - feature_monitoring   # include feature branch in auto-publish
+  workflow_dispatch:
 
 permissions:
-  contents: write     # needed to push tags
+  contents: write      # needed to create & push tags
   packages: write
 
 env:
@@ -23,8 +22,12 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0   # we need tags
+          fetch-depth: 0   # we need tags for bump_version.sh
 
+      # Decide bump type based on HEAD commit message:
+      # - "#major" -> major
+      # - "#minor" -> minor
+      # - (default) -> patch
       - name: Determine bump type from commit message
         id: bump_type
         run: |
@@ -36,6 +39,7 @@ jobs:
             bump="minor"
           fi
           echo "bump=$bump" >> "$GITHUB_OUTPUT"
+          echo "Bump type: $bump"
 
       - name: Calculate next version tag
         id: version
@@ -43,11 +47,13 @@ jobs:
           chmod +x scripts/bump_version.sh
           TAG=$(scripts/bump_version.sh "${{ steps.bump_type.outputs.bump }}")
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+
           # strip leading 'v' for the Docker tag
           VERSION="${TAG#v}"
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-          echo "Next tag: $TAG"
-          echo "Docker version: $VERSION"
+
+          echo "Next git tag: $TAG"
+          echo "Docker image version: $VERSION"
 
       - name: Compute build timestamp
         id: meta
@@ -66,11 +72,15 @@ jobs:
 
       - name: Build Docker image
         run: |
-          FULL_IMAGE="${{ secrets.NEXUS_DOCKER_REGISTRY }}/${{ env.IMAGE_NAME }}"
+          REGISTRY="${{ secrets.NEXUS_DOCKER_REGISTRY }}"
+          REPO="${{ secrets.NEXUS_REPO_DOCKER }}"
+          IMAGE="${{ env.IMAGE_NAME }}"
           VERSION="${{ steps.version.outputs.version }}"
           TS="${{ steps.meta.outputs.timestamp }}"
 
-          echo "Building image:"
+          FULL_IMAGE="$REGISTRY/$REPO/$IMAGE"
+
+          echo "Building image with tags:"
           echo "  $FULL_IMAGE:$VERSION"
           echo "  $FULL_IMAGE:latest"
           echo "  $FULL_IMAGE:$TS"
@@ -83,9 +93,13 @@ jobs:
 
       - name: Push Docker image to Nexus
         run: |
-          FULL_IMAGE="${{ secrets.NEXUS_DOCKER_REGISTRY }}/${{ env.IMAGE_NAME }}"
+          REGISTRY="${{ secrets.NEXUS_DOCKER_REGISTRY }}"
+          REPO="${{ secrets.NEXUS_REPO_DOCKER }}"
+          IMAGE="${{ env.IMAGE_NAME }}"
           VERSION="${{ steps.version.outputs.version }}"
           TS="${{ steps.meta.outputs.timestamp }}"
+
+          FULL_IMAGE="$REGISTRY/$REPO/$IMAGE"
 
           echo "Pushing $FULL_IMAGE:$VERSION"
           docker push "$FULL_IMAGE:$VERSION"
@@ -107,6 +121,7 @@ jobs:
           if git rev-parse "$TAG" >/dev/null 2>&1; then
             echo "Tag $TAG already exists, skipping tag creation."
           else
+            echo "Creating tag $TAG"
             git tag "$TAG"
             git push origin "$TAG"
           fi
