@@ -65,12 +65,12 @@ jobs:
 
       # Only try to log into Nexus when building from main
       - name: Log in to Nexus Docker registry
-        if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/feature_monitoring'
         run: |
-          echo "${{ secrets.NEXUS_PASSWORD }}" | docker login \
-            "${{ secrets.NEXUS_DOCKER_REGISTRY }}" \
-            -u "${{ secrets.NEXUS_USERNAME }}" \
-            --password-stdin
+          docker login \
+            --username "${{ secrets.NEXUS_USERNAME }}" \
+            --password "${{ secrets.NEXUS_PASSWORD }}" \
+            --tls-verify=false \
+            http://${{ secrets.NEXUS_DOCKER_REGISTRY }}
 
       - name: Build Docker image
         run: |
