@@ -63,9 +63,9 @@ jobs:
           echo "timestamp=$TS" >> "$GITHUB_OUTPUT"
           echo "Build timestamp: $TS"
 
-      # 🔐 Only try to log into Nexus when building from main
+      # Only try to log into Nexus when building from main
       - name: Log in to Nexus Docker registry
-        if: github.ref == 'refs/heads/main'
+        if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/feature_monitoring'
         run: |
           echo "${{ secrets.NEXUS_PASSWORD }}" | docker login \
             "${{ secrets.NEXUS_DOCKER_REGISTRY }}" \
@@ -93,7 +93,7 @@ jobs:
             -t "$FULL_IMAGE:$TS" \
             .
 
-      # 🚀 Only push to Nexus when on main
+      # Only push to Nexus when on main
       - name: Push Docker image to Nexus
         if: github.ref == 'refs/heads/main'
         run: |
