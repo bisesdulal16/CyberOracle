@@ -47,3 +47,5 @@ htmlcov/
 
 # Node/npm (if front-end code exists)
 node_modules/
+
+infra/db-backup/backup.env

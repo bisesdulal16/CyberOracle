@@ -107,7 +107,7 @@ services:
       - "9000:9000"  # S3 API endpoint
       - "9001:9001"  # Web console (optional)
     volumes:
-      - minio_data:/data
+      - minio-data:/data
 
 
 volumes:
