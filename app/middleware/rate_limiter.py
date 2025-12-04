@@ -21,8 +21,8 @@ if is_test_mode():
     RATE_LIMIT = 5
     TIME_WINDOW = 60
 else:
-    RATE_LIMIT = 1000
-    TIME_WINDOW = 1
+    RATE_LIMIT = 5
+    TIME_WINDOW = 60
 
 requests_log = {}
 
@@ -30,8 +30,8 @@ requests_log = {}
 class RateLimitMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
         # Disable rate limiting during pytest unless the test explicitly enables it
-        if is_test_mode() and not os.getenv("DISABLE_RATE_LIMIT_TEST"):
-            return await call_next(request)
+        ## if is_test_mode() and not os.getenv("DISABLE_RATE_LIMIT_TEST"):
+        ##    return await call_next(request)
 
         client_ip = request.client.host
         now = time.time()
