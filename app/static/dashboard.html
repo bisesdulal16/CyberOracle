@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>CyberOracle Dashboard</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+
+<div class="container dashboard-box">
+    <h2>🧭 CyberOracle Dashboard</h2>
+
+    <p id="welcome"></p>
+
+    <button onclick="logout()">Logout</button>
+</div>
+
+<script>
+const token = sessionStorage.getItem("token");
+const role = sessionStorage.getItem("role");
+
+if (!token) {
+    window.location.href = "/static/login.html";    
+}
+
+document.getElementById("welcome").textContent =
+    role === "admin"
+        ? "Welcome, Administrator — full system access granted."
+        : "Welcome, User — limited access mode enabled.";
+
+function logout() {
+    sessionStorage.clear();
+    window.location.href = "/static/login.html";
+}
+</script>
+
+</body>
+</html>

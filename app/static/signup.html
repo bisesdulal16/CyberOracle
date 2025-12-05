@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>CyberOracle | Sign Up</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+
+<body class="dark-theme">
+
+<div class="auth-container centered-box">
+    <h2>Create Account</h2>
+
+    <form id="signupForm">
+
+        <input type="text" id="username" placeholder="Username" required>
+
+        <input type="password" id="password" placeholder="Password" required>
+
+        <p class="info-text">
+            Password must contain:<br>
+            • 8+ characters<br>
+            • 1 uppercase<br>
+            • 1 lowercase<br>
+            • 1 number<br>
+            • 1 special character
+        </p>
+
+        <button type="submit" class="btn-primary">Sign Up</button>
+
+        <p class="switch-link">
+            Already have an account? <a href="/login">Log in</a>
+        </p>
+
+        <p id="errorMsg" class="error-message"></p>
+        <p id="banMsg" class="ban-message"></p>
+
+    </form>
+</div>
+
+<script>
+function normalizeErrorMessage(err) {
+    if (typeof err !== "string") return err;
+
+    // Map technical field names → friendly labels
+    const fieldMap = {
+        "String": "",
+        "username": "Username",
+        "password": "Password"
+    };
+
+    let msg = err;
+
+    // Replace “String should…” with user-friendly text
+    if (err.includes("String should have at least")) {
+        if (err.includes("3 characters")) {
+            msg = "Username must have at least 3 characters.";
+        }
+        if (err.includes("8 characters")) {
+            msg = "Password must have at least 8 characters.";
+        }
+    }
+
+    // Cleanup generic prefixes like “Value error,”
+    msg = msg.replace("Value error, ", "");
+
+    return msg;
+}
+
+document.getElementById("signupForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+
+    const username = document.getElementById("username").value.trim();
+    const password = document.getElementById("password").value.trim();
+
+    const payload = { username, password };
+
+    const res = await fetch("/auth/signup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+    });
+
+    let data = {};
+    try { data = await res.json(); } catch {}
+
+    // ============================
+    // RATE LIMITING ERROR (429)
+    // ============================
+    if (res.status === 429) {
+        document.getElementById("banMsg").innerText = data.detail;
+        return;
+    }
+
+    // ==========================================================
+    // PYDANTIC ERRORS (FastAPI validation)
+    // ==========================================================
+    if (Array.isArray(data.detail)) {
+        const messages = data.detail
+            .map((err) => normalizeErrorMessage(err.msg))
+            .join("\n");
+
+        document.getElementById("errorMsg").innerText = messages;
+        return;
+    }
+
+    // ==========================================================
+    // OWASP CUSTOM VALIDATION ERRORS
+    // ==========================================================
+    if (data.errors) {
+        const messages = data.errors
+            .map((err) => normalizeErrorMessage(err))
+            .join("\n");
+
+        document.getElementById("errorMsg").innerText = messages;
+        return;
+    }
+
+    // ============================
+    // GENERIC FAILURE
+    // ============================
+    if (!res.ok) {
+        document.getElementById("errorMsg").innerText =
+            data.detail || "Signup failed.";
+        return;
+    }
+
+    // ============================
+    // SUCCESS → redirect
+    // ============================
+    alert("Account created successfully! Redirecting to login...");
+    window.location.href = "/login";
+});
+</script>
+
+</body>
+</html>

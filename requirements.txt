@@ -19,7 +19,15 @@ asyncpg==0.29.0             # Async Postgres driver
 psycopg2-binary==2.9.10     # Synchronous Postgres driver (fallback)
 python-dotenv==1.0.1        # Loads environment variables from .env files
 python-jose[cryptography]   # ADDED — required for JWT creation and verification
-
+passlib[bcrypt]==1.7.4      # Password hashing for authentication
+bcrypt==4.2.0               # Underlying bcrypt implementation
+starlette==0.41.2           # FastAPI internal framework support
+aiofiles==23.2.1            # File handling for static assets
+email-validator==2.2.0      # Required by Pydantic for email fields
+python-multipart==0.0.9     # Form parsing for login/signup (added again for consistency)
+anyio==4.4.0                # ASGI concurrency layer used by FastAPI
+h11==0.14.0                 # HTTP core library for uvicorn and FastAPI
+jinja2==3.1.4               # Template rendering support if needed for UI
 # -----------------------------------------------------------------------------
 # 🔹 Data Privacy & DLP Modules
 # -----------------------------------------------------------------------------
