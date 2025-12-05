@@ -32,4 +32,5 @@ def require_role(role: str):
         if user.get("role") != role:
             raise HTTPException(status_code=403, detail="Insufficient privileges")
         return user
+
     return role_checker
