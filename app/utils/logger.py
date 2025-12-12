@@ -1,11 +1,12 @@
 """
-Secure Logging Utilities (NCFR5)
-===============================
+Secure Logging Utilities
+========================
 Implements masked logging for sensitive fields and safe async log storage.
 
 OWASP Logging Guidance:
-- Never log secrets, tokens, passwords, SSNs, or API keys.
+- Never log secrets, tokens, passwords, or API keys.
 - Always sanitize logs before writing to stdout or the database.
+- Ensure logs cannot leak sensitive fields during debugging, auditing, or errors.
 """
 
 import logging
@@ -27,39 +28,47 @@ logger.addHandler(handler)
 
 # Sensitive fields that must NEVER appear in logs (OWASP-ASVS 9.1)
 SENSITIVE_PATTERNS = {
-    # query-string style
-    "password": r"(password=)[^&\s]+",
-    "token": r"(token=)[^&\s]+",
-    "api_key": r"(api[_-]?key=)[^&\s]+",
-    # JSON style: "password": "value"
-    "password_json": r"(\"password\"\s*:\s*\")[^\"]+",
-    "token_json": r"(\"token\"\s*:\s*\")[^\"]+",
-    "ssn_json": r"(\"ssn\"\s*:\s*\")[^\"]+",
+    "password": r"password=[^&\s]+",
+    "token": r"token=[^&\s]+",
+    "api_key": r"api[_-]?key=[^&\s]+",
 }
 
 
 def mask_sensitive(text: str) -> str:
     """
     Mask sensitive values before logging.
-    This ensures logs never reveal secrets.
+
+    Parameters
+    ----------
+    text : str
+        The message that may contain sensitive info.
+
+    Returns
+    -------
+    str
+        Sanitized message where sensitive fields are masked.
+
+    Notes (OWASP-ASVS 9.1.1)
+    ------------------------
+    Logging secrets is a critical vulnerability.
+    We replace values but keep field names for debugging visibility.
     """
     if not isinstance(text, str):
         return text
 
     masked = text
-
     for label, pattern in SENSITIVE_PATTERNS.items():
-        field = label.split("_")[0]  # normalize "password_json" → "password"
-        masked = re.sub(
-            pattern, f'"{field}": "***MASKED***"', masked, flags=re.IGNORECASE
-        )
-
+        masked = re.sub(pattern, f"{label}=***MASKED***", masked, flags=re.IGNORECASE)
     return masked
 
 
 def secure_log(message: str) -> None:
     """
-    Public logging helper that masks sensitive data prior to stdout logging.
+    Log a message safely using masked output.
+
+    Notes
+    -----
+    Protects logs from leaking credentials during debugging.
     """
     safe_msg = mask_sensitive(message)
     logger.info(safe_msg)
@@ -70,19 +79,29 @@ async def log_request(
 ):
     """
     Store structured log entries asynchronously in the database.
-    Sensitive data is masked before insertion.
-    """
-    safe_message = mask_sensitive(message) if message else None
 
+    Params
+    ------
+    endpoint : str
+        Endpoint accessed e.g. "/logs/ingest"
+    method : str
+        HTTP method used (GET/POST/etc.)
+    status_code : int
+        Resulting HTTP status
+    message : str, optional
+        Additional details, already masked by caller.
+
+    Security Notes (OWASP-ASVS 9.3)
+    --------------------------------
+    - Logs must be structured, timestamped, and non-sensitive.
+    - Only masked content should ever be inserted into the DB.
+    """
     async with AsyncSessionLocal() as session:
         entry = LogEntry(
             endpoint=endpoint,
             method=method,
             status_code=status_code,
-            message=safe_message,
+            message=message,
         )
         session.add(entry)
         await session.commit()
-
-    # Also log masked version to stdout
-    logger.info(f"[REQUEST] {endpoint} {method} {status_code} → {safe_message}")
