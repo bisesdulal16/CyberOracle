@@ -115,7 +115,4 @@ services:
 
 volumes:
   pgdata:
-  nexus-data:
-  loki-data:
-  minio-data:
   grafana_data:   # <-- 🚀 NEW PERSISTENT VOLUME

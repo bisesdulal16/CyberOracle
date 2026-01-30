@@ -89,6 +89,11 @@ presidio-analyzer==2.2.357   # Microsoft Presidio — detects sensitive data
 presidio-anonymizer==2.2.357 # Microsoft Presidio — anonymizes sensitive data
 
 # -----------------------------------------------------------------------------
+# 🔹 Encryption (added for PSFR7 DB encryption)
+# -----------------------------------------------------------------------------
+cryptography==42.0.5      # Required for Fernet encryption used in PSFR7
+
+# -----------------------------------------------------------------------------
 # 🔹 Testing & Coverage Tools
 # -----------------------------------------------------------------------------
 pytest==8.3.3               # Core testing framework
