@@ -106,11 +106,12 @@ async def log_request(
         session.add(entry)
         await session.commit()
 
+
 # Compliance and Security Event Logging
 def record_auth_failure(username: str):
     """
     Log authentication failures for compliance dashboards.
-    
+
     Logged as:
         AUTH_FAILURE user=<username> reason=invalid_credentials
 

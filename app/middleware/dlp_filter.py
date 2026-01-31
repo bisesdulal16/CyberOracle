@@ -80,7 +80,7 @@ class DLPFilterMiddleware(BaseHTTPMiddleware):
                 source="dlp_middleware",
             )
 
-             # also log DLP_HIT events for compliance dashboards
+            # also log DLP_HIT events for compliance dashboards
             for etype in sorted(detected_entities):
                 record_dlp_hit(username="unknown_user", rule=etype)
 

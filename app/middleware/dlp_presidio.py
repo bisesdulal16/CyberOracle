@@ -8,7 +8,7 @@ and triggers real-time Discord alerts when found.
 from presidio_analyzer import AnalyzerEngine, PatternRecognizer, Pattern
 from presidio_anonymizer import AnonymizerEngine
 from app.utils.alert_manager import send_alert
-from app.utils.logger import record_dlp_hit 
+from app.utils.logger import record_dlp_hit
 
 # ---------------------------------------------------------------------
 # Target entity types for MVP phase (restricted scope)
