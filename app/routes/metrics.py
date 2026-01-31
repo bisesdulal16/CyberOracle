@@ -29,7 +29,7 @@ async def get_compliance_status():
     Overall compliance score & control coverage.
     """
     return {
-        "compliance_score": 0.82,        # 0–1
+        "compliance_score": 0.82,  # 0–1
         "compliant_controls": 41,
         "total_controls": 50,
     }

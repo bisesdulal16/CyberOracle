@@ -46,4 +46,4 @@ app.include_router(logs_router, prefix="/logs", tags=["Logs"])
 app.include_router(dlp_router, prefix="/api", tags=["DLP"])
 
 # include metrics router for dashboard APIs
-app.include_router(metrics_router)   # routes already have prefix="/api"
+app.include_router(metrics_router)  # routes already have prefix="/api"

@@ -1,6 +1,4 @@
 [flake8]
-exclude = .git,__pycache__,venv,env,.venv,migrations
+exclude = .git,__pycache__,venv,env,.venv,migrations,node_modules,ui/ui/node_modules,ui/ui/.next,ui/ui/out,build,dist
 max-line-length = 100
-ignore =
-    E203
-    W503
+ignore = E203,W503
