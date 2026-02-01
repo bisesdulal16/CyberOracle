@@ -21,6 +21,8 @@ from starlette.requests import Request
 from app.middleware.dlp_presidio import presidio_scan
 from app.utils.alert_manager import send_alert
 
+from app.utils.logger import record_dlp_hit
+
 
 def _sanitize_value(value: Any, detected_entities: Set[str]) -> Any:
     """
@@ -77,6 +79,10 @@ class DLPFilterMiddleware(BaseHTTPMiddleware):
                 severity="high",
                 source="dlp_middleware",
             )
+
+            # also log DLP_HIT events for compliance dashboards
+            for etype in sorted(detected_entities):
+                record_dlp_hit(username="unknown_user", rule=etype)
 
         response = await call_next(request)
         return response

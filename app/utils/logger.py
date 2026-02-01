@@ -105,3 +105,32 @@ async def log_request(
         )
         session.add(entry)
         await session.commit()
+
+
+# Compliance and Security Event Logging
+def record_auth_failure(username: str):
+    """
+    Log authentication failures for compliance dashboards.
+
+    Logged as:
+        AUTH_FAILURE user=<username> reason=invalid_credentials
+
+    Notes:
+    - Username is not considered a secret under OWASP ASVS.
+    - No passwords or tokens are ever logged.
+    """
+    msg = f"AUTH_FAILURE user={username} reason=invalid_credentials"
+    secure_log(msg)  # masked + safe logging
+
+
+def record_dlp_hit(username: str, rule: str):
+    """
+    Log DLP (Data Loss Prevention) violations for compliance dashboards.
+
+    Logged as:
+        DLP_HIT user=<username> rule=<rule>
+
+    These will be scraped by Loki and displayed in the compliance dashboards.
+    """
+    msg = f"DLP_HIT user={username} rule={rule}"
+    secure_log(msg)  # masked + safe logging
