@@ -70,6 +70,10 @@ jobs:
           echo "timestamp=$TS" >> "$GITHUB_OUTPUT"
           echo "Build timestamp: $TS"
 
+      - name: Debug Nexus registry
+        run: |
+          echo "REGISTRY=${{ secrets.NEXUS_DOCKER_REGISTRY }}"
+  
       - name: Log in to Nexus Docker registry
         run: |
           echo "${{ secrets.NEXUS_PASSWORD }}" | docker login \
