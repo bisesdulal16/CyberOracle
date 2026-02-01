@@ -75,6 +75,7 @@ jobs:
           echo "REGISTRY=${{ secrets.NEXUS_DOCKER_REGISTRY }}"
   
       - name: Log in to Nexus Docker registry
+        if: github.ref == 'refs/heads/main'
         run: |
           echo "${{ secrets.NEXUS_PASSWORD }}" | docker login \
             "${{ secrets.NEXUS_DOCKER_REGISTRY }}" \
