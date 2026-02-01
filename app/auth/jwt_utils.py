@@ -9,6 +9,8 @@ expiration enforcement, and algorithm safety.
 from datetime import datetime, timedelta
 from jose import jwt, JWTError
 
+from app.utils.logger import record_auth_failure
+
 SECRET_KEY = "dev_only_secret_change_in_prod"
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
@@ -34,4 +36,6 @@ def verify_token(token: str) -> dict:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         return payload
     except JWTError:
+        # We don't log the raw token; we only record an auth failure event
+        record_auth_failure(username="jwt_client")
         raise ValueError("Invalid or expired JWT token")
