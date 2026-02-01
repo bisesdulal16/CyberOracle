@@ -1,0 +1,131 @@
+{
+  "id": null,
+  "uid": "cyberoracle-compliance",
+  "title": "CyberOracle – Compliance Overview (Foundations)",
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "30s",
+  "tags": ["cyberoracle", "compliance", "audit"],
+  "time": {"from": "now-24h", "to": "now"},
+  "templating": {
+    "list": [
+      {
+        "type": "interval",
+        "name": "__interval",
+        "label": "Interval",
+        "query": "30s,1m,5m,15m,1h",
+        "current": {"text": "5m", "value": "5m"}
+      }
+    ]
+  },
+  "panels": [
+    {
+      "type": "stat",
+      "title": "AU-2 Audit Events – Total logs (24h)",
+      "gridPos": {"x": 0, "y": 0, "w": 6, "h": 4},
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {"type": "postgres", "uid": "CyberOracle-Postgres"},
+          "format": "table",
+          "rawSql": "SELECT COUNT(*)::bigint AS value FROM logs WHERE created_at >= NOW() - INTERVAL '24 hours';"
+        }
+      ],
+      "options": {"reduceOptions": {"calcs": ["lastNotNull"], "fields": "value", "values": false}}
+    },
+    {
+      "type": "stat",
+      "title": "SI-4 Monitoring – Error logs (4xx/5xx) (24h)",
+      "gridPos": {"x": 6, "y": 0, "w": 6, "h": 4},
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {"type": "postgres", "uid": "CyberOracle-Postgres"},
+          "format": "table",
+          "rawSql": "SELECT COUNT(*)::bigint AS value FROM logs WHERE created_at >= NOW() - INTERVAL '24 hours' AND status_code >= 400;"
+        }
+      ],
+      "options": {"reduceOptions": {"calcs": ["lastNotNull"], "fields": "value", "values": false}}
+    },
+    {
+      "type": "stat",
+      "title": "AU-6 Audit Review – % masked entries (24h)",
+      "gridPos": {"x": 12, "y": 0, "w": 6, "h": 4},
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {"type": "postgres", "uid": "CyberOracle-Postgres"},
+          "format": "table",
+          "rawSql": "WITH totals AS (\n  SELECT\n    COUNT(*)::numeric AS total,\n    SUM(CASE WHEN message ILIKE '%***MASKED***%' THEN 1 ELSE 0 END)::numeric AS masked\n  FROM logs\n  WHERE created_at >= NOW() - INTERVAL '24 hours'\n)\nSELECT CASE WHEN total = 0 THEN 0 ELSE ROUND((masked/total)*100, 2) END AS value FROM totals;"
+        }
+      ],
+      "options": {"reduceOptions": {"calcs": ["lastNotNull"], "fields": "value", "values": false}, "unit": "percent"}
+    },
+    {
+      "type": "stat",
+      "title": "AC-7 Unsuccessful attempts – 401/403 logs (24h)",
+      "gridPos": {"x": 18, "y": 0, "w": 6, "h": 4},
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {"type": "postgres", "uid": "CyberOracle-Postgres"},
+          "format": "table",
+          "rawSql": "SELECT COUNT(*)::bigint AS value FROM logs WHERE created_at >= NOW() - INTERVAL '24 hours' AND status_code IN (401,403);"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "AU-2 Audit Events – Log volume over time",
+      "gridPos": {"x": 0, "y": 4, "w": 12, "h": 8},
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {"type": "postgres", "uid": "CyberOracle-Postgres"},
+          "format": "time_series",
+          "rawSql": "SELECT\n  date_trunc('minute', created_at) AS time,\n  COUNT(*)::bigint AS value\nFROM logs\nWHERE created_at >= NOW() - INTERVAL '24 hours'\nGROUP BY 1\nORDER BY 1;"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "SI-4 Monitoring – 4xx/5xx over time",
+      "gridPos": {"x": 12, "y": 4, "w": 12, "h": 8},
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {"type": "postgres", "uid": "CyberOracle-Postgres"},
+          "format": "time_series",
+          "rawSql": "SELECT\n  date_trunc('minute', created_at) AS time,\n  COUNT(*)::bigint AS value\nFROM logs\nWHERE created_at >= NOW() - INTERVAL '24 hours' AND status_code >= 400\nGROUP BY 1\nORDER BY 1;"
+        }
+      ]
+    },
+    {
+      "type": "table",
+      "title": "AU-6 Audit Review – Top endpoints by volume (24h)",
+      "gridPos": {"x": 0, "y": 12, "w": 12, "h": 8},
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {"type": "postgres", "uid": "CyberOracle-Postgres"},
+          "format": "table",
+          "rawSql": "SELECT endpoint, COUNT(*)::bigint AS hits\nFROM logs\nWHERE created_at >= NOW() - INTERVAL '24 hours'\nGROUP BY endpoint\nORDER BY hits DESC\nLIMIT 10;"
+        }
+      ]
+    },
+    {
+      "type": "table",
+      "title": "SI-4 Monitoring – Top status codes (24h)",
+      "gridPos": {"x": 12, "y": 12, "w": 12, "h": 8},
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {"type": "postgres", "uid": "CyberOracle-Postgres"},
+          "format": "table",
+          "rawSql": "SELECT status_code, COUNT(*)::bigint AS hits\nFROM logs\nWHERE created_at >= NOW() - INTERVAL '24 hours'\nGROUP BY status_code\nORDER BY hits DESC;"
+        }
+      ]
+    }
+  ]
+}
