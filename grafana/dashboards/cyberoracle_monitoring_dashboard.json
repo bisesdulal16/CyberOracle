@@ -1,0 +1,471 @@
+{
+  "id": null,
+  "uid": "cyberoracle-monitoring",
+  "title": "CyberOracle Monitoring Dashboard",
+  "tags": ["cyberoracle", "security", "logs"],
+  "timezone": "",
+  "schemaVersion": 36,
+  "version": 1,
+  "refresh": "10s",
+  "style": "dark",
+  "time": {
+    "from": "now-24h",
+    "to": "now"
+  },
+  "timepicker": {
+    "refresh_intervals": ["5s", "10s", "30s", "1m", "5m"],
+    "time_options": ["1h", "6h", "12h", "24h", "7d", "30d"]
+  },
+  "templating": {
+    "list": []
+  },
+  "panels": [
+    {
+      "id": 1,
+      "title": "Total Logs (last 24h)",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 4, "x": 0, "y": 0 },
+      "datasource": {
+        "type": "postgres",
+        "uid": "cyberoracle"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "table",
+          "rawSql": "SELECT count(*) AS total FROM logs WHERE $__timeFilter(created_at);",
+          "datasource": {
+            "type": "postgres",
+            "uid": "cyberoracle"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "decimals": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "fields": "/.*/",
+          "values": false
+        },
+        "orientation": "horizontal"
+      }
+    },
+    {
+      "id": 2,
+      "title": "Estimated API Uptime (has logs in range)",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 4, "x": 4, "y": 0 },
+      "datasource": {
+        "type": "postgres",
+        "uid": "cyberoracle"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "table",
+          "rawSql": "SELECT CASE WHEN count(*) > 0 THEN 100 ELSE 0 END AS uptime_percent FROM logs WHERE $__timeFilter(created_at);",
+          "datasource": {
+            "type": "postgres",
+            "uid": "cyberoracle"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "decimals": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "fields": "/.*/",
+          "values": false
+        },
+        "orientation": "horizontal"
+      }
+    },
+    {
+      "id": 3,
+      "title": "Sensitive / Masked Logs (approx)",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 4, "x": 8, "y": 0 },
+      "datasource": {
+        "type": "postgres",
+        "uid": "cyberoracle"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "table",
+          "rawSql": "SELECT count(*) AS masked_logs FROM logs WHERE $__timeFilter(created_at) AND (message ILIKE '%masked%' OR message ILIKE '%redacted%' OR message ILIKE '%DLP%');",
+          "datasource": {
+            "type": "postgres",
+            "uid": "cyberoracle"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "decimals": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "fields": "/.*/",
+          "values": false
+        },
+        "orientation": "horizontal"
+      }
+    },
+    {
+      "id": 4,
+      "title": "Logs Over Time",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 4 },
+      "datasource": {
+        "type": "postgres",
+        "uid": "cyberoracle"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "decimals": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "time_series",
+          "rawSql": "SELECT\n  $__timeGroupAlias(created_at, '5m'),\n  count(*) AS count\nFROM logs\nWHERE $__timeFilter(created_at)\nGROUP BY 1\nORDER BY 1;",
+          "datasource": {
+            "type": "postgres",
+            "uid": "cyberoracle"
+          }
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "title": "HTTP Status Code Distribution",
+      "type": "piechart",
+      "gridPos": { "h": 8, "w": 6, "x": 0, "y": 12 },
+      "datasource": {
+        "type": "postgres",
+        "uid": "cyberoracle"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "decimals": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "right"
+        },
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "fields": "/.*/",
+          "values": false
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "table",
+          "rawSql": "SELECT status_code::text AS code, count(*) AS count\nFROM logs\nWHERE $__timeFilter(created_at)\nGROUP BY status_code\nORDER BY status_code;",
+          "datasource": {
+            "type": "postgres",
+            "uid": "cyberoracle"
+          }
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "title": "Top 10 Endpoints",
+      "type": "barchart",
+      "gridPos": { "h": 8, "w": 6, "x": 6, "y": 12 },
+      "datasource": {
+        "type": "postgres",
+        "uid": "cyberoracle"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "decimals": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "hidden",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "table",
+          "rawSql": "SELECT endpoint, count(*) AS count\nFROM logs\nWHERE $__timeFilter(created_at)\nGROUP BY endpoint\nORDER BY count DESC\nLIMIT 10;",
+          "datasource": {
+            "type": "postgres",
+            "uid": "cyberoracle"
+          }
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "title": "HTTP Methods Breakdown",
+      "type": "piechart",
+      "gridPos": { "h": 8, "w": 6, "x": 0, "y": 20 },
+      "datasource": {
+        "type": "postgres",
+        "uid": "cyberoracle"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "decimals": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "right"
+        },
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "fields": "/.*/",
+          "values": false
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "table",
+          "rawSql": "SELECT method, count(*) AS count\nFROM logs\nWHERE $__timeFilter(created_at)\nGROUP BY method\nORDER BY count DESC;",
+          "datasource": {
+            "type": "postgres",
+            "uid": "cyberoracle"
+          }
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "title": "Logs Ingested Per Hour",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 6, "x": 6, "y": 20 },
+      "datasource": {
+        "type": "postgres",
+        "uid": "cyberoracle"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "decimals": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "time_series",
+          "rawSql": "SELECT\n  date_trunc('hour', created_at) AS time,\n  count(*) AS count\nFROM logs\nWHERE $__timeFilter(created_at)\nGROUP BY 1\nORDER BY 1;",
+          "datasource": {
+            "type": "postgres",
+            "uid": "cyberoracle"
+          }
+        }
+      ]
+    },
+    {
+      "id": 9,
+      "title": "Sensitive Pattern Breakdown (approx)",
+      "type": "piechart",
+      "gridPos": { "h": 8, "w": 6, "x": 0, "y": 28 },
+      "datasource": {
+        "type": "postgres",
+        "uid": "cyberoracle"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "decimals": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "right"
+        },
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "fields": "/.*/",
+          "values": false
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "table",
+          "rawSql": "SELECT\n  CASE\n    WHEN message ILIKE '%ssn%' THEN 'SSN pattern'\n    WHEN message ILIKE '%card%' OR message ILIKE '%credit%' THEN 'Card pattern'\n    WHEN message ILIKE '%api key%' OR message ILIKE '%token%' THEN 'API key / token'\n    WHEN message ILIKE '%masked%' OR message ILIKE '%redacted%' OR message ILIKE '%DLP%' THEN 'Masked / DLP'\n    ELSE 'Other'\n  END AS category,\n  count(*) AS count\nFROM logs\nWHERE $__timeFilter(created_at)\nGROUP BY category\nORDER BY count DESC;",
+          "datasource": {
+            "type": "postgres",
+            "uid": "cyberoracle"
+          }
+        }
+      ]
+    },
+    {
+      "id": 10,
+      "title": "DLP Block Rate (approx % of masked logs)",
+      "type": "gauge",
+      "gridPos": { "h": 8, "w": 6, "x": 6, "y": 28 },
+      "datasource": {
+        "type": "postgres",
+        "uid": "cyberoracle"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "min": 0,
+          "max": 100,
+          "decimals": 1
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "fields": "/.*/",
+          "values": false
+        },
+        "showThresholdLabels": true,
+        "showThresholdMarkers": true
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "table",
+          "rawSql": "SELECT\n  CASE WHEN count(*) = 0 THEN 0\n       ELSE 100.0 * SUM(CASE WHEN message ILIKE '%masked%' OR message ILIKE '%redacted%' OR message ILIKE '%DLP%' THEN 1 ELSE 0 END) / count(*)\n  END AS dlp_percent\nFROM logs\nWHERE $__timeFilter(created_at);",
+          "datasource": {
+            "type": "postgres",
+            "uid": "cyberoracle"
+          }
+        }
+      ]
+    },
+    {
+      "id": 11,
+      "title": "Recent Logs (Last 100)",
+      "type": "table",
+      "gridPos": { "h": 10, "w": 12, "x": 0, "y": 36 },
+      "datasource": {
+        "type": "postgres",
+        "uid": "cyberoracle"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none"
+        },
+        "overrides": []
+      },
+      "options": {
+        "showHeader": true
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "table",
+          "rawSql": "SELECT\n  created_at,\n  endpoint,\n  method,\n  status_code,\n  message\nFROM logs\nWHERE $__timeFilter(created_at)\nORDER BY created_at DESC\nLIMIT 100;",
+          "datasource": {
+            "type": "postgres",
+            "uid": "cyberoracle"
+          }
+        }
+      ]
+    },
+    {
+      "id": 12,
+      "title": "Top 10 Endpoints by Volume (Table)",
+      "type": "table",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 46 },
+      "datasource": {
+        "type": "postgres",
+        "uid": "cyberoracle"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none"
+        },
+        "overrides": []
+      },
+      "options": {
+        "showHeader": true
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "table",
+          "rawSql": "SELECT\n  endpoint,\n  count(*) AS total\nFROM logs\nWHERE $__timeFilter(created_at)\nGROUP BY endpoint\nORDER BY total DESC\nLIMIT 10;",
+          "datasource": {
+            "type": "postgres",
+            "uid": "cyberoracle"
+          }
+        }
+      ]
+    }
+  ]
+}
