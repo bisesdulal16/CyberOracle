@@ -4,7 +4,9 @@ on:
   push:
     branches:
       - main
-      - feature_monitoring   # include feature branch in auto-publish
+  pull_request:
+    branches:
+      - main
   workflow_dispatch:
 
 permissions:
@@ -16,7 +18,7 @@ env:
 
 jobs:
   build-and-publish:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, x64]
 
     steps:
       - name: Checkout code
@@ -30,15 +32,20 @@ jobs:
       # - (default) -> patch
       - name: Determine bump type from commit message
         id: bump_type
+        shell: bash
         run: |
-          msg="${{ github.event.head_commit.message }}"
+          # For PRs, head_commit isn't present. Use the latest commit message from git instead.
+          msg="$(git log -1 --pretty=%B)"
           bump="patch"
+
           if [[ "$msg" == *"#major"* ]]; then
             bump="major"
           elif [[ "$msg" == *"#minor"* ]]; then
             bump="minor"
           fi
+
           echo "bump=$bump" >> "$GITHUB_OUTPUT"
+          echo "Commit message used for bump:\n$msg"
           echo "Bump type: $bump"
 
       - name: Calculate next version tag
@@ -113,6 +120,7 @@ jobs:
           docker push "$FULL_IMAGE:$TS"
 
       - name: Create and push git tag
+        if: github.ref == 'refs/heads/main'
         run: |
           TAG="${{ steps.version.outputs.tag }}"
 
