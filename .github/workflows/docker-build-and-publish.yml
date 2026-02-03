@@ -70,9 +70,11 @@ jobs:
           echo "timestamp=$TS" >> "$GITHUB_OUTPUT"
           echo "Build timestamp: $TS"
 
-      - name: Debug Nexus registry
+      - name: Check Nexus registry reachable (no secrets printed)
+        if: github.ref == 'refs/heads/main'
         run: |
-          echo "REGISTRY=${{ secrets.NEXUS_DOCKER_REGISTRY }}"
+          curl -sS -o /dev/null -w "registry_http_status=%{http_code}\n" \
+            "http://${{ secrets.NEXUS_DOCKER_REGISTRY }}/v2/" || true
   
       - name: Log in to Nexus Docker registry
         if: github.ref == 'refs/heads/main'
@@ -90,7 +92,13 @@ jobs:
           VERSION="${{ steps.version.outputs.version }}"
           TS="${{ steps.meta.outputs.timestamp }}"
 
-          FULL_IMAGE="$REGISTRY/$REPO/$IMAGE"
+          REGISTRY="${REGISTRY#http://}"
+          REGISTRY="${REGISTRY#https://}"
+          REGISTRY="${REGISTRY%/}"
+          REPO="${REPO#/}"
+          REPO="${REPO%/}"
+
+          FULL_IMAGE="${REGISTRY}/${REPO}/${IMAGE}"
 
           echo "Building image with tags:"
           echo "  $FULL_IMAGE:$VERSION"
@@ -113,7 +121,13 @@ jobs:
           VERSION="${{ steps.version.outputs.version }}"
           TS="${{ steps.meta.outputs.timestamp }}"
 
-          FULL_IMAGE="$REGISTRY/$REPO/$IMAGE"
+          REGISTRY="${REGISTRY#http://}"
+          REGISTRY="${REGISTRY#https://}"
+          REGISTRY="${REGISTRY%/}"
+          REPO="${REPO#/}"
+          REPO="${REPO%/}"
+
+          FULL_IMAGE="${REGISTRY}/${REPO}/${IMAGE}"
 
           echo "Pushing $FULL_IMAGE:$VERSION"
           docker push "$FULL_IMAGE:$VERSION"
