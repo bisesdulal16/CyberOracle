@@ -8,7 +8,6 @@ and triggers real-time Discord alerts when found.
 from presidio_analyzer import AnalyzerEngine, PatternRecognizer, Pattern
 from presidio_anonymizer import AnonymizerEngine
 from app.utils.alert_manager import send_alert
-from app.utils.logger import record_dlp_hit
 
 # ---------------------------------------------------------------------
 # Target entity types for MVP phase (restricted scope)
@@ -76,11 +75,6 @@ def presidio_scan(text: str, alert: bool = True):
             severity="high",
             source="presidio_dlp",
         )
-
-        # log DLP_HIT events for compliance dashboards
-        # For now we don't have a user identity in this layer, so we use a placeholder.
-        for etype in entity_types:
-            record_dlp_hit(username="unknown_user", rule=etype)
 
     anonymized = anonymizer.anonymize(text=text, analyzer_results=results)
     return anonymized.text, [r.entity_type for r in results]

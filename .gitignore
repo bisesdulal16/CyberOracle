@@ -47,7 +47,3 @@ htmlcov/
 
 # Node/npm (if front-end code exists)
 node_modules/
-
-infra/db-backup/backup.envjetty-https.xml
-infra/db-backup/backup.env
-actions-runner/
