@@ -5,6 +5,7 @@ from app.routes.dlp import router as dlp_router  # import DLP routes
 from app.middleware.dlp_filter import DLPFilterMiddleware
 from app.middleware.rate_limiter import RateLimitMiddleware
 from app.utils.exception_handler import secure_exception_handler
+from app.routes.metrics import router as metrics_router
 
 # Initialize FastAPI application with metadata
 app = FastAPI(
@@ -43,3 +44,6 @@ async def startup_event():
 # Include modular routes
 app.include_router(logs_router, prefix="/logs", tags=["Logs"])
 app.include_router(dlp_router, prefix="/api", tags=["DLP"])
+
+# include metrics router for dashboard APIs
+app.include_router(metrics_router)  # routes already have prefix="/api"
