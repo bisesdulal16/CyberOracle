@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import SecureChatPanel from './SecureChatPanel';
 
 type SummaryMetrics = {
   totalPrompts24h: number;
@@ -252,15 +253,12 @@ const Dashboard: React.FC = () => {
       );
     }
 
-    // --- PLACEHOLDERS FOR OTHER SECTIONS ---
+    // --- OTHER SECTIONS ---
     switch (section) {
       case 'Secure Chat':
-        return (
-          <SectionPlaceholder
-            title="Secure Chat"
-            description="This section will host the secure chat interface that talks to CyberOracle's /ai/query gateway. It will show prompt history, risk scores, and redaction indicators inline."
-          />
-        );
+        // ✅ this is the missing part: show SecureChatPanel inside dashboard
+        return <SecureChatPanel />;
+
       case 'Document Sanitizer':
         return (
           <SectionPlaceholder
