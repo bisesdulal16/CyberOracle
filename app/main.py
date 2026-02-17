@@ -5,6 +5,8 @@ from app.routes.dlp import router as dlp_router  # import DLP routes
 from app.middleware.dlp_filter import DLPFilterMiddleware
 from app.middleware.rate_limiter import RateLimitMiddleware
 from app.utils.exception_handler import secure_exception_handler
+from app.routes.ai import router as ai_router
+from contextlib import asynccontextmanager
 
 # Initialize FastAPI application with metadata
 app = FastAPI(
@@ -22,6 +24,8 @@ app.add_middleware(RateLimitMiddleware)
 # Register custom Exception Handler middleware
 app.add_exception_handler(Exception, secure_exception_handler)
 
+app.include_router(ai_router, prefix="/ai", tags=["AI Gateway"])
+
 
 # Health check endpoint to verify uptime and API status
 @app.get("/health")
@@ -33,11 +37,14 @@ async def health():
     return {"status": "OK", "service": "CyberOracle API"}
 
 
-@app.on_event("startup")
-async def startup_event():
-    """Initialize database tables on startup."""
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # startup
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+    yield
+    # shutdown (optional): close pools if you want
+    # await engine.dispose()
 
 
 # Include modular routes
