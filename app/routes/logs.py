@@ -8,10 +8,17 @@ Security Notes (OWASP-ASVS 9.2):
 - Always mask values BEFORE storing or logging.
 """
 
-from fastapi import APIRouter, Request
+from typing import Optional
+
+from fastapi import APIRouter, Query, Request
 from fastapi.responses import JSONResponse
-from app.utils.logger import log_request, secure_log, mask_sensitive
-from app.schemas.log_schema import LogIngest  # NEW
+from sqlalchemy import select
+
+from app.db.db import AsyncSessionLocal
+from app.models import LogEntry
+from app.schemas.log_schema import LogIngest
+from app.utils.db_encryption import decrypt_value
+from app.utils.logger import log_request, mask_sensitive, secure_log
 
 router = APIRouter()
 
@@ -19,9 +26,66 @@ router = APIRouter()
 @router.get("/")
 async def get_logs():
     """
-    Simple health check for logs endpoint.
+    Health check for the logs endpoint.
     """
     return {"message": "Logs endpoint active"}
+
+
+@router.get("/list")
+async def list_logs(
+    limit: int = Query(default=50, ge=1, le=200),
+    offset: int = Query(default=0, ge=0),
+    severity: Optional[str] = Query(default=None),
+    event_type: Optional[str] = Query(default=None),
+    policy_decision: Optional[str] = Query(default=None),
+):
+    """
+    Paginated log retrieval for the Audit Log panel.
+
+    Query params
+    ------------
+    limit          : records per page (1–200, default 50)
+    offset         : records to skip (for pagination)
+    severity       : filter by "low" | "medium" | "high"
+    event_type     : filter by "ai_query" | "ai_query_blocked" | "dlp_alert" etc.
+    policy_decision: filter by "allow" | "redact" | "block"
+    """
+    async with AsyncSessionLocal() as session:
+        query = select(LogEntry).order_by(LogEntry.created_at.desc())
+
+        if severity:
+            query = query.where(LogEntry.severity == severity)
+        if event_type:
+            query = query.where(LogEntry.event_type == event_type)
+        if policy_decision:
+            query = query.where(LogEntry.policy_decision == policy_decision)
+
+        query = query.offset(offset).limit(limit)
+        result = await session.execute(query)
+        entries = result.scalars().all()
+
+    return {
+        "logs": [
+            {
+                "id": e.id,
+                "endpoint": e.endpoint,
+                "method": e.method,
+                "status_code": e.status_code,
+                "event_type": e.event_type,
+                "severity": e.severity,
+                "risk_score": e.risk_score,
+                "source": e.source,
+                "policy_decision": e.policy_decision,
+                # Decrypt message at read time if encryption is active
+                "message": decrypt_value(e.message) if e.message else None,
+                "created_at": e.created_at.isoformat() + "Z" if e.created_at else None,
+            }
+            for e in entries
+        ],
+        "count": len(entries),
+        "offset": offset,
+        "limit": limit,
+    }
 
 
 @router.post("/")

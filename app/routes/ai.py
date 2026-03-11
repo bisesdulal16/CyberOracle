@@ -93,6 +93,11 @@ async def ai_query(req: AIQueryRequest, request: Request):
             method="POST",
             status_code=200,
             message=masked_log,
+            event_type="ai_query_blocked",
+            severity="high",
+            risk_score=input_risk,
+            source="ai_route",
+            policy_decision="block",
         )
 
         return AIQueryResponse(
@@ -141,6 +146,9 @@ async def ai_query(req: AIQueryRequest, request: Request):
             method="POST",
             status_code=502,
             message=masked_log,
+            event_type="ai_query_model_error",
+            severity="high",
+            source="ai_route",
         )
 
         raise HTTPException(status_code=502, detail=repr(e))
@@ -194,12 +202,19 @@ async def ai_query(req: AIQueryRequest, request: Request):
         "client_ip": client_ip,
     }
 
+    _sev = "high" if combined_risk >= 0.7 else "medium" if combined_risk >= 0.3 else "low"
+
     masked_log = mask_sensitive(str(log_payload))
     await log_request(
         endpoint="/ai/query",
         method="POST",
         status_code=200,
         message=masked_log,
+        event_type="ai_query",
+        severity=_sev,
+        risk_score=combined_risk,
+        source="ai_route",
+        policy_decision=output_decision.decision.value,
     )
 
     # ------------------------------------------------------------------
