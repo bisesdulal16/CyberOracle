@@ -14,8 +14,8 @@ class CircuitBreaker:
     def __init__(self, fail_threshold: int = 3, cooldown_s: int = 30):
         self.fail_threshold = fail_threshold
         self.cooldown_s = cooldown_s
-        self.failures: dict = {}      # model -> failure count
-        self.open_until: dict = {}    # model -> re-open timestamp
+        self.failures: dict = {}  # model -> failure count
+        self.open_until: dict = {}  # model -> re-open timestamp
 
     def allow(self, model: str) -> bool:
         """Return True if the circuit is closed (requests allowed)."""

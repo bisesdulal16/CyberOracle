@@ -202,7 +202,9 @@ async def ai_query(req: AIQueryRequest, request: Request):
         "client_ip": client_ip,
     }
 
-    _sev = "high" if combined_risk >= 0.7 else "medium" if combined_risk >= 0.3 else "low"
+    _sev = (
+        "high" if combined_risk >= 0.7 else "medium" if combined_risk >= 0.3 else "low"
+    )
 
     masked_log = mask_sensitive(str(log_payload))
     await log_request(

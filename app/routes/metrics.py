@@ -140,7 +140,10 @@ async def get_recent_alerts():
                 "id": "0",
                 "type": "System",
                 "severity": "info",
-                "message": "No high-risk events logged yet. Alerts will appear here after activity.",
+                "message": (
+                    "No high-risk events logged yet. "
+                    "Alerts will appear here after activity."
+                ),
                 "timestamp": datetime.utcnow().isoformat() + "Z",
             }
         ]
