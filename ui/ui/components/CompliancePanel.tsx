@@ -2,12 +2,9 @@
 
 import React, { useState, useEffect } from 'react';
 import { apiFetch } from '../lib/auth';
+import { ArrowDownTrayIcon, ArrowPathIcon } from '@heroicons/react/24/outline';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:8000';
-
-// ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
 
 type ControlStatus = 'compliant' | 'partial' | 'non-compliant';
 
@@ -29,12 +26,6 @@ type ComplianceAPIResponse = {
   total_controls: number;
   frameworks: Record<string, FrameworkData>;
 };
-
-// ---------------------------------------------------------------------------
-// Static data — control lists per framework
-// These reflect what is actually implemented in the CyberOracle codebase.
-// Counts match the scores returned by /api/compliance/status.
-// ---------------------------------------------------------------------------
 
 const FRAMEWORK_CONTROLS: Record<string, Control[]> = {
   HIPAA: [
@@ -97,32 +88,11 @@ const FRAMEWORK_CONTROLS: Record<string, Control[]> = {
   ],
 };
 
-// DLP rules sourced from policy.yaml
 const DLP_RULES = [
-  {
-    pattern: 'SSN',
-    description: 'U.S. Social Security Numbers',
-    severity: 'Critical',
-    mode: 'Block + Redact',
-  },
-  {
-    pattern: 'Credit Card',
-    description: 'Credit/debit card numbers (13–16 digits)',
-    severity: 'Critical',
-    mode: 'Block + Redact',
-  },
-  {
-    pattern: 'API Key',
-    description: 'Exposed API keys or tokens in request payloads',
-    severity: 'High',
-    mode: 'Block + Redact',
-  },
-  {
-    pattern: 'Email Address',
-    description: 'Email addresses in prompts and responses',
-    severity: 'Medium',
-    mode: 'Redact',
-  },
+  { pattern: 'SSN', description: 'U.S. Social Security Numbers', severity: 'Critical', mode: 'Block + Redact' },
+  { pattern: 'Credit Card', description: 'Credit/debit card numbers (13–16 digits)', severity: 'Critical', mode: 'Block + Redact' },
+  { pattern: 'API Key', description: 'Exposed API keys or tokens in request payloads', severity: 'High', mode: 'Block + Redact' },
+  { pattern: 'Email Address', description: 'Email addresses in prompts and responses', severity: 'Medium', mode: 'Redact' },
 ];
 
 const FRAMEWORK_TABS = ['HIPAA', 'FERPA', 'NIST_CSF', 'GDPR'] as const;
@@ -135,47 +105,34 @@ const FRAMEWORK_LABELS: Record<Framework, string> = {
   GDPR: 'GDPR',
 };
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
 function statusBadge(status: ControlStatus) {
   switch (status) {
     case 'compliant':
-      return 'bg-emerald-100 text-emerald-700';
+      return 'bg-emerald-400/10 text-emerald-400 border border-emerald-500/20';
     case 'partial':
-      return 'bg-amber-100 text-amber-700';
+      return 'bg-amber-400/10 text-amber-400 border border-amber-500/20';
     case 'non-compliant':
-      return 'bg-red-100 text-red-700';
+      return 'bg-red-400/10 text-red-400 border border-red-500/20';
   }
 }
 
 function statusLabel(status: ControlStatus) {
   switch (status) {
-    case 'compliant':
-      return 'Compliant';
-    case 'partial':
-      return 'Partial';
-    case 'non-compliant':
-      return 'Non-compliant';
+    case 'compliant': return 'Compliant';
+    case 'partial': return 'Partial';
+    case 'non-compliant': return 'Non-compliant';
   }
 }
 
-function severityColor(severity: string) {
+function dlpSeverityColor(severity: string) {
   switch (severity) {
-    case 'Critical':
-      return 'bg-red-100 text-red-700';
-    case 'High':
-      return 'bg-orange-100 text-orange-700';
-    default:
-      return 'bg-yellow-100 text-yellow-700';
+    case 'Critical': return 'bg-red-400/10 text-red-400 border border-red-500/20';
+    case 'High': return 'bg-amber-400/10 text-amber-400 border border-amber-500/20';
+    default: return 'bg-blue-400/10 text-blue-400 border border-blue-500/20';
   }
 }
 
-function handleExport(
-  framework: Framework,
-  frameworkData: FrameworkData | undefined,
-) {
+function handleExport(framework: Framework, frameworkData: FrameworkData | undefined) {
   const controls = FRAMEWORK_CONTROLS[framework] ?? [];
   const label = FRAMEWORK_LABELS[framework];
   const score = frameworkData ? Math.round(frameworkData.score * 100) : 0;
@@ -196,10 +153,7 @@ function handleExport(
     ...DLP_RULES.map((r) => [r.pattern, r.description, r.severity, r.mode]),
   ];
 
-  const csv = rows
-    .map((r) => r.map((cell) => `"${cell}"`).join(','))
-    .join('\n');
-
+  const csv = rows.map((r) => r.map((cell) => `"${cell}"`).join(',')).join('\n');
   const blob = new Blob([csv], { type: 'text/csv' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
@@ -208,10 +162,6 @@ function handleExport(
   a.click();
   URL.revokeObjectURL(url);
 }
-
-// ---------------------------------------------------------------------------
-// Component
-// ---------------------------------------------------------------------------
 
 export default function CompliancePanel() {
   const [activeTab, setActiveTab] = useState<Framework>('HIPAA');
@@ -236,73 +186,67 @@ export default function CompliancePanel() {
       }
     }
     fetchCompliance();
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
   }, []);
 
-  const overallScore = apiData
-    ? Math.round(apiData.compliance_score * 100)
-    : 0;
+  const overallScore = apiData ? Math.round(apiData.compliance_score * 100) : 0;
   const activeFramework = apiData?.frameworks[activeTab];
   const controls = FRAMEWORK_CONTROLS[activeTab] ?? [];
-  const frameworkScore = activeFramework
-    ? Math.round(activeFramework.score * 100)
-    : 0;
+  const frameworkScore = activeFramework ? Math.round(activeFramework.score * 100) : 0;
 
   return (
     <div className="mt-4 max-w-4xl">
       <div className="flex items-start justify-between mb-1">
         <div>
-          <h1 className="text-2xl font-semibold text-slate-900">Compliance</h1>
-          <p className="text-sm text-slate-500">
+          <h1 className="text-2xl font-semibold text-slate-100">Compliance</h1>
+          <p className="text-sm text-slate-400">
             Control coverage across HIPAA, FERPA, NIST CSF, and GDPR.
           </p>
         </div>
         <button
           type="button"
           onClick={() => handleExport(activeTab, activeFramework)}
-          className="mt-1 px-3 py-1.5 text-[11px] font-semibold rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 transition"
+          className="mt-1 flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-semibold rounded-lg border border-slate-700 bg-slate-800 text-slate-200 hover:bg-slate-700 transition"
         >
+          <ArrowDownTrayIcon className="w-3.5 h-3.5" />
           Export CSV
         </button>
       </div>
 
       {fetchError && (
-        <div className="mt-3 mb-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-700">
+        <div className="mt-3 mb-4 rounded-lg border border-amber-500/20 bg-amber-400/5 px-4 py-3 text-xs text-amber-400">
           Backend unavailable — showing last known compliance status.
         </div>
       )}
 
       {/* Overall summary row */}
       <div className="grid grid-cols-3 gap-4 mt-5 mb-6">
-        <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm text-center">
-          <p className="text-xs text-slate-500 mb-1">Overall score</p>
-          <p className="text-2xl font-semibold text-slate-900">
-            {loading ? '—' : `${overallScore}%`}
+        <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 text-center">
+          <p className="text-xs text-slate-400 mb-1">Overall score</p>
+          <p className="text-2xl font-semibold text-slate-100">
+            {loading ? (
+              <ArrowPathIcon className="animate-spin w-5 h-5 text-cyan-400 mx-auto" />
+            ) : `${overallScore}%`}
           </p>
         </div>
-        <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm text-center">
-          <p className="text-xs text-slate-500 mb-1">Compliant controls</p>
-          <p className="text-2xl font-semibold text-emerald-600">
+        <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 text-center">
+          <p className="text-xs text-slate-400 mb-1">Compliant controls</p>
+          <p className="text-2xl font-semibold text-emerald-400">
             {loading ? '—' : (apiData?.compliant_controls ?? 0)}
           </p>
         </div>
-        <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm text-center">
-          <p className="text-xs text-slate-500 mb-1">Non-compliant</p>
-          <p className="text-2xl font-semibold text-red-600">
-            {loading
-              ? '—'
-              : (apiData?.total_controls ?? 0) -
-                (apiData?.compliant_controls ?? 0)}
+        <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 text-center">
+          <p className="text-xs text-slate-400 mb-1">Non-compliant</p>
+          <p className="text-2xl font-semibold text-red-400">
+            {loading ? '—' : (apiData?.total_controls ?? 0) - (apiData?.compliant_controls ?? 0)}
           </p>
         </div>
       </div>
 
       {/* Framework tabs */}
-      <div className="bg-white rounded-xl border border-slate-200 shadow-sm mb-6">
+      <div className="bg-slate-900 border border-slate-800 rounded-xl mb-6 overflow-hidden">
         {/* Tab bar */}
-        <div className="flex border-b border-slate-100">
+        <div className="flex border-b border-slate-800">
           {FRAMEWORK_TABS.map((fw) => (
             <button
               key={fw}
@@ -311,8 +255,8 @@ export default function CompliancePanel() {
               className={
                 'flex-1 py-3 text-xs font-semibold transition ' +
                 (activeTab === fw
-                  ? 'border-b-2 border-sky-500 text-sky-700 bg-sky-50'
-                  : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50')
+                  ? 'border-b-2 border-cyan-400 text-cyan-400 bg-cyan-400/5'
+                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800')
               }
             >
               {FRAMEWORK_LABELS[fw]}
@@ -325,32 +269,32 @@ export default function CompliancePanel() {
           {/* Framework score bar */}
           <div className="mb-5">
             <div className="flex justify-between items-center mb-2">
-              <span className="text-xs font-semibold text-slate-700">
+              <span className="text-xs font-semibold text-slate-300">
                 {FRAMEWORK_LABELS[activeTab]} Coverage
               </span>
               <span className="text-xs text-slate-500">
                 {loading ? '—' : `${activeFramework?.compliant ?? 0} / ${activeFramework?.total ?? 0} controls`}
-                <span className="ml-2 font-semibold text-slate-800">
+                <span className="ml-2 font-semibold text-slate-300">
                   {loading ? '' : `${frameworkScore}%`}
                 </span>
               </span>
             </div>
-            <div className="w-full h-2.5 rounded-full bg-slate-100 overflow-hidden">
+            <div className="w-full h-2.5 rounded-full bg-slate-700 overflow-hidden">
               <div
-                className="h-full bg-sky-500 transition-all duration-500"
+                className="h-full bg-cyan-500 transition-all duration-500"
                 style={{ width: loading ? '0%' : `${frameworkScore}%` }}
               />
             </div>
           </div>
 
           {/* Controls list */}
-          <div className="space-y-2">
+          <div className="space-y-1">
             {controls.map((control) => (
               <div
                 key={control.name}
-                className="flex items-center justify-between py-2 border-b border-slate-50 last:border-0"
+                className="flex items-center justify-between py-2 border-b border-slate-800 last:border-0 hover:bg-slate-800 px-2 rounded-lg transition"
               >
-                <span className="text-xs text-slate-700 pr-4">
+                <span className="text-xs text-slate-300 pr-4">
                   {control.name}
                 </span>
                 <span
@@ -365,52 +309,50 @@ export default function CompliancePanel() {
       </div>
 
       {/* DLP Rules table */}
-      <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-5">
+      <div className="bg-slate-900 border border-slate-800 rounded-xl p-5">
         <div className="flex items-center justify-between mb-4">
           <div>
-            <h2 className="text-sm font-semibold text-slate-900">
+            <h2 className="text-sm font-semibold text-slate-200">
               Active DLP Rules
             </h2>
-            <p className="text-xs text-slate-500">
+            <p className="text-xs text-slate-400">
               Sourced from{' '}
-              <code className="bg-slate-100 px-1 rounded text-[10px]">
+              <code className="font-mono text-xs bg-slate-800 rounded px-1 text-slate-300">
                 policy.yaml
               </code>{' '}
               — applied to all AI requests and document uploads.
             </p>
           </div>
-          <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 font-semibold">
+          <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-400/10 text-emerald-400 border border-emerald-500/20 font-semibold">
             All Active
           </span>
         </div>
 
         <table className="w-full text-xs">
           <thead>
-            <tr className="text-left text-slate-500 border-b border-slate-100">
-              <th className="pb-2 font-medium">Pattern</th>
-              <th className="pb-2 font-medium">Description</th>
-              <th className="pb-2 font-medium">Severity</th>
-              <th className="pb-2 font-medium">Enforcement</th>
+            <tr className="text-left text-slate-400 bg-slate-800 border-b border-slate-700">
+              <th className="pb-2 pt-2 px-3 font-medium">Pattern</th>
+              <th className="pb-2 pt-2 px-3 font-medium">Description</th>
+              <th className="pb-2 pt-2 px-3 font-medium">Severity</th>
+              <th className="pb-2 pt-2 px-3 font-medium">Enforcement</th>
             </tr>
           </thead>
           <tbody>
             {DLP_RULES.map((rule) => (
               <tr
                 key={rule.pattern}
-                className="border-b border-slate-50 last:border-0"
+                className="border-b border-slate-800 last:border-0 hover:bg-slate-800 transition"
               >
-                <td className="py-2.5 font-semibold text-slate-800">
+                <td className="py-2.5 px-3 font-semibold text-slate-200">
                   {rule.pattern}
                 </td>
-                <td className="py-2.5 text-slate-600">{rule.description}</td>
-                <td className="py-2.5">
-                  <span
-                    className={`text-[10px] px-2 py-0.5 rounded-full font-semibold ${severityColor(rule.severity)}`}
-                  >
+                <td className="py-2.5 px-3 text-slate-400">{rule.description}</td>
+                <td className="py-2.5 px-3">
+                  <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold ${dlpSeverityColor(rule.severity)}`}>
                     {rule.severity}
                   </span>
                 </td>
-                <td className="py-2.5 text-slate-600">{rule.mode}</td>
+                <td className="py-2.5 px-3 text-slate-400">{rule.mode}</td>
               </tr>
             ))}
           </tbody>

@@ -2,14 +2,17 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { apiFetch } from '../lib/auth';
+import {
+  ArrowPathIcon,
+  ArrowDownTrayIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon,
+  FunnelIcon,
+} from '@heroicons/react/24/outline';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:8000';
 
 const PAGE_SIZE = 20;
-
-// ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
 
 type LogEntry = {
   id: number;
@@ -31,9 +34,9 @@ type Filters = {
   policy_decision: string;
 };
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
+function Spinner({ className }: { className?: string }) {
+  return <ArrowPathIcon className={`animate-spin text-cyan-400 ${className ?? 'w-5 h-5'}`} />;
+}
 
 function relativeTime(iso: string | null): string {
   if (!iso) return '—';
@@ -48,21 +51,21 @@ function relativeTime(iso: string | null): string {
 }
 
 function severityBadge(s: string | null): string {
-  if (!s) return 'bg-slate-100 text-slate-500';
+  if (!s) return 'bg-slate-800 text-slate-500';
   const v = s.toLowerCase();
-  if (v === 'high') return 'bg-red-100 text-red-700';
-  if (v === 'medium') return 'bg-yellow-100 text-yellow-800';
-  if (v === 'low') return 'bg-blue-100 text-blue-700';
-  return 'bg-slate-100 text-slate-500';
+  if (v === 'high') return 'bg-red-400/10 text-red-400 border border-red-500/20';
+  if (v === 'medium') return 'bg-amber-400/10 text-amber-400 border border-amber-500/20';
+  if (v === 'low') return 'bg-blue-400/10 text-blue-400 border border-blue-500/20';
+  return 'bg-slate-800 text-slate-500';
 }
 
 function policyBadge(p: string | null): string {
-  if (!p) return 'bg-slate-100 text-slate-500';
+  if (!p) return 'bg-slate-800 text-slate-500';
   const v = p.toLowerCase();
-  if (v === 'block') return 'bg-red-100 text-red-700';
-  if (v === 'redact') return 'bg-amber-100 text-amber-700';
-  if (v === 'allow') return 'bg-green-100 text-green-700';
-  return 'bg-slate-100 text-slate-500';
+  if (v === 'block') return 'bg-red-400/10 text-red-400 border border-red-500/20';
+  if (v === 'redact') return 'bg-amber-400/10 text-amber-400 border border-amber-500/20';
+  if (v === 'allow') return 'bg-emerald-400/10 text-emerald-400 border border-emerald-500/20';
+  return 'bg-slate-800 text-slate-500';
 }
 
 function cap(s: string | null): string {
@@ -72,17 +75,8 @@ function cap(s: string | null): string {
 
 function exportCSV(logs: LogEntry[]) {
   const headers = [
-    'ID',
-    'Timestamp',
-    'Endpoint',
-    'Method',
-    'Status',
-    'Event Type',
-    'Severity',
-    'Risk Score',
-    'Policy Decision',
-    'Source',
-    'Message',
+    'ID', 'Timestamp', 'Endpoint', 'Method', 'Status',
+    'Event Type', 'Severity', 'Risk Score', 'Policy Decision', 'Source', 'Message',
   ];
   const rows = logs.map((e) => [
     e.id,
@@ -95,7 +89,6 @@ function exportCSV(logs: LogEntry[]) {
     e.risk_score ?? '',
     e.policy_decision ?? '',
     e.source ?? '',
-    // strip commas from message to keep CSV valid
     (e.message ?? '').replace(/,/g, ' '),
   ]);
 
@@ -112,15 +105,14 @@ function exportCSV(logs: LogEntry[]) {
   URL.revokeObjectURL(url);
 }
 
-// ---------------------------------------------------------------------------
-// Component
-// ---------------------------------------------------------------------------
+const selectClass =
+  'bg-slate-800 border border-slate-700 text-slate-100 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-cyan-500/50 focus:border-cyan-500/50 placeholder:text-slate-500';
 
 const AuditLogPanel: React.FC = () => {
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState(false);
-  const [page, setPage] = useState(0); // 0-indexed
+  const [page, setPage] = useState(0);
   const [hasMore, setHasMore] = useState(false);
   const [filters, setFilters] = useState<Filters>({
     severity: '',
@@ -179,8 +171,8 @@ const AuditLogPanel: React.FC = () => {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-semibold text-slate-900">Audit Log</h1>
-          <p className="text-sm text-slate-500 mt-0.5">
+          <h1 className="text-2xl font-semibold text-slate-100">Audit Log</h1>
+          <p className="text-sm text-slate-400 mt-0.5">
             Full searchable trail of all AI requests, DLP decisions, and policy
             actions.
           </p>
@@ -188,28 +180,32 @@ const AuditLogPanel: React.FC = () => {
         <button
           onClick={() => exportCSV(logs)}
           disabled={logs.length === 0}
-          className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-700 shadow-sm hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition"
+          className="flex items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-xs font-medium text-slate-200 hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed transition"
         >
+          <ArrowDownTrayIcon className="w-3.5 h-3.5" />
           Export CSV
         </button>
       </div>
 
       {/* Error banner */}
       {fetchError && (
-        <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-700">
+        <div className="rounded-lg border border-amber-500/20 bg-amber-400/5 px-4 py-3 text-xs text-amber-400">
           Backend unavailable — start the CyberOracle backend to see audit logs.
         </div>
       )}
 
       {/* Filters */}
-      <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
+      <div className="bg-slate-900 rounded-xl border border-slate-800 p-4">
         <div className="flex flex-wrap items-center gap-3">
-          <span className="text-xs font-medium text-slate-500">Filter:</span>
+          <div className="flex items-center gap-1.5 text-xs font-medium text-slate-400">
+            <FunnelIcon className="w-3.5 h-3.5" />
+            Filter:
+          </div>
 
           <select
             value={filters.severity}
             onChange={(e) => applyFilter('severity', e.target.value)}
-            className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-sky-300"
+            className={selectClass}
           >
             <option value="">All severities</option>
             <option value="low">Low</option>
@@ -220,7 +216,7 @@ const AuditLogPanel: React.FC = () => {
           <select
             value={filters.event_type}
             onChange={(e) => applyFilter('event_type', e.target.value)}
-            className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-sky-300"
+            className={selectClass}
           >
             <option value="">All event types</option>
             <option value="ai_query">AI Query</option>
@@ -233,7 +229,7 @@ const AuditLogPanel: React.FC = () => {
           <select
             value={filters.policy_decision}
             onChange={(e) => applyFilter('policy_decision', e.target.value)}
-            className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-sky-300"
+            className={selectClass}
           >
             <option value="">All decisions</option>
             <option value="allow">Allow</option>
@@ -244,7 +240,7 @@ const AuditLogPanel: React.FC = () => {
           {activeFilters && (
             <button
               onClick={clearFilters}
-              className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-500 hover:bg-slate-50 transition"
+              className="rounded-lg border border-slate-700 bg-slate-800 px-3 py-1.5 text-xs text-slate-400 hover:bg-slate-700 hover:text-slate-200 transition"
             >
               Clear filters
             </button>
@@ -253,32 +249,34 @@ const AuditLogPanel: React.FC = () => {
       </div>
 
       {/* Table */}
-      <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+      <div className="bg-slate-900 rounded-xl border border-slate-800 overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-xs">
             <thead>
-              <tr className="border-b border-slate-100 bg-slate-50 text-left">
-                <th className="px-4 py-3 font-semibold text-slate-600 whitespace-nowrap">Time</th>
-                <th className="px-4 py-3 font-semibold text-slate-600 whitespace-nowrap">Event Type</th>
-                <th className="px-4 py-3 font-semibold text-slate-600 whitespace-nowrap">Endpoint</th>
-                <th className="px-4 py-3 font-semibold text-slate-600 whitespace-nowrap">Method</th>
-                <th className="px-4 py-3 font-semibold text-slate-600 whitespace-nowrap">Status</th>
-                <th className="px-4 py-3 font-semibold text-slate-600 whitespace-nowrap">Severity</th>
-                <th className="px-4 py-3 font-semibold text-slate-600 whitespace-nowrap">Risk</th>
-                <th className="px-4 py-3 font-semibold text-slate-600 whitespace-nowrap">Decision</th>
-                <th className="px-4 py-3 font-semibold text-slate-600">Message</th>
+              <tr className="border-b border-slate-800 bg-slate-800 text-left">
+                <th className="px-4 py-3 font-semibold text-slate-400 whitespace-nowrap">Time</th>
+                <th className="px-4 py-3 font-semibold text-slate-400 whitespace-nowrap">Event Type</th>
+                <th className="px-4 py-3 font-semibold text-slate-400 whitespace-nowrap">Endpoint</th>
+                <th className="px-4 py-3 font-semibold text-slate-400 whitespace-nowrap">Method</th>
+                <th className="px-4 py-3 font-semibold text-slate-400 whitespace-nowrap">Status</th>
+                <th className="px-4 py-3 font-semibold text-slate-400 whitespace-nowrap">Severity</th>
+                <th className="px-4 py-3 font-semibold text-slate-400 whitespace-nowrap">Risk</th>
+                <th className="px-4 py-3 font-semibold text-slate-400 whitespace-nowrap">Decision</th>
+                <th className="px-4 py-3 font-semibold text-slate-400">Message</th>
               </tr>
             </thead>
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={9} className="px-4 py-10 text-center text-slate-400">
-                    Loading logs…
+                  <td colSpan={9} className="px-4 py-10 text-center">
+                    <div className="flex justify-center">
+                      <Spinner />
+                    </div>
                   </td>
                 </tr>
               ) : logs.length === 0 ? (
                 <tr>
-                  <td colSpan={9} className="px-4 py-10 text-center text-slate-400">
+                  <td colSpan={9} className="px-4 py-10 text-center text-slate-500">
                     {activeFilters ? 'No logs match the selected filters.' : 'No audit logs found.'}
                   </td>
                 </tr>
@@ -286,15 +284,18 @@ const AuditLogPanel: React.FC = () => {
                 logs.map((entry) => (
                   <tr
                     key={entry.id}
-                    className="border-b border-slate-50 hover:bg-slate-50 transition"
+                    className="border-b border-slate-800 hover:bg-slate-800 transition"
                   >
-                    <td className="px-4 py-2.5 whitespace-nowrap text-slate-500">
+                    <td className="px-4 py-2.5 whitespace-nowrap text-slate-500" title={entry.created_at ?? ''}>
                       {relativeTime(entry.created_at)}
                     </td>
-                    <td className="px-4 py-2.5 whitespace-nowrap text-slate-700">
+                    <td className="px-4 py-2.5 whitespace-nowrap text-slate-300" title={entry.event_type ?? ''}>
                       {entry.event_type ?? '—'}
                     </td>
-                    <td className="px-4 py-2.5 whitespace-nowrap font-mono text-slate-600 max-w-[160px] truncate">
+                    <td
+                      className="px-4 py-2.5 whitespace-nowrap font-mono text-slate-400 max-w-[160px] truncate"
+                      title={entry.endpoint}
+                    >
                       {entry.endpoint}
                     </td>
                     <td className="px-4 py-2.5 whitespace-nowrap text-slate-500 uppercase">
@@ -305,10 +306,10 @@ const AuditLogPanel: React.FC = () => {
                         className={
                           'px-2 py-0.5 rounded-full font-semibold ' +
                           (entry.status_code >= 500
-                            ? 'bg-red-100 text-red-700'
+                            ? 'bg-red-400/10 text-red-400 border border-red-500/20'
                             : entry.status_code >= 400
-                              ? 'bg-amber-100 text-amber-700'
-                              : 'bg-green-100 text-green-700')
+                              ? 'bg-amber-400/10 text-amber-400 border border-amber-500/20'
+                              : 'bg-emerald-400/10 text-emerald-400 border border-emerald-500/20')
                         }
                       >
                         {entry.status_code}
@@ -316,32 +317,29 @@ const AuditLogPanel: React.FC = () => {
                     </td>
                     <td className="px-4 py-2.5 whitespace-nowrap">
                       {entry.severity ? (
-                        <span
-                          className={`px-2 py-0.5 rounded-full font-semibold ${severityBadge(entry.severity)}`}
-                        >
+                        <span className={`px-2 py-0.5 rounded-full font-semibold ${severityBadge(entry.severity)}`}>
                           {cap(entry.severity)}
                         </span>
                       ) : (
-                        <span className="text-slate-400">—</span>
+                        <span className="text-slate-600">—</span>
                       )}
                     </td>
-                    <td className="px-4 py-2.5 whitespace-nowrap text-slate-600">
-                      {entry.risk_score != null
-                        ? entry.risk_score.toFixed(2)
-                        : '—'}
+                    <td className="px-4 py-2.5 whitespace-nowrap text-slate-400">
+                      {entry.risk_score != null ? entry.risk_score.toFixed(2) : '—'}
                     </td>
                     <td className="px-4 py-2.5 whitespace-nowrap">
                       {entry.policy_decision ? (
-                        <span
-                          className={`px-2 py-0.5 rounded-full font-semibold ${policyBadge(entry.policy_decision)}`}
-                        >
+                        <span className={`px-2 py-0.5 rounded-full font-semibold ${policyBadge(entry.policy_decision)}`}>
                           {cap(entry.policy_decision)}
                         </span>
                       ) : (
-                        <span className="text-slate-400">—</span>
+                        <span className="text-slate-600">—</span>
                       )}
                     </td>
-                    <td className="px-4 py-2.5 text-slate-500 max-w-[220px] truncate">
+                    <td
+                      className="px-4 py-2.5 text-slate-500 max-w-[220px] truncate"
+                      title={entry.message ?? ''}
+                    >
                       {entry.message ?? '—'}
                     </td>
                   </tr>
@@ -353,7 +351,7 @@ const AuditLogPanel: React.FC = () => {
 
         {/* Pagination */}
         {!loading && logs.length > 0 && (
-          <div className="flex items-center justify-between border-t border-slate-100 px-4 py-3">
+          <div className="flex items-center justify-between border-t border-slate-800 px-4 py-3">
             <span className="text-xs text-slate-500">
               Showing {firstRecord}–{lastRecord}
             </span>
@@ -361,17 +359,19 @@ const AuditLogPanel: React.FC = () => {
               <button
                 onClick={() => setPage((p) => Math.max(0, p - 1))}
                 disabled={page === 0}
-                className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition"
+                className="flex items-center gap-1 rounded-lg border border-slate-700 bg-slate-800 px-3 py-1.5 text-xs font-medium text-slate-300 hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed transition"
               >
+                <ChevronLeftIcon className="w-3.5 h-3.5" />
                 Previous
               </button>
               <span className="text-xs text-slate-500">Page {page + 1}</span>
               <button
                 onClick={() => setPage((p) => p + 1)}
                 disabled={!hasMore}
-                className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition"
+                className="flex items-center gap-1 rounded-lg border border-slate-700 bg-slate-800 px-3 py-1.5 text-xs font-medium text-slate-300 hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed transition"
               >
                 Next
+                <ChevronRightIcon className="w-3.5 h-3.5" />
               </button>
             </div>
           </div>

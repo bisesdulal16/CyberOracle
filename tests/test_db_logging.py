@@ -24,23 +24,19 @@ def event_loop():
 async def setup_db():
     """
     Set up the test database schema before running tests.
-    - Creates all tables defined in Base.metadata
-    - Drops all tables after tests complete
-    Ensures a clean database state for each test module.
+    Recreates all tables so schema changes are reflected.
     """
     engine = create_async_engine(DATABASE_URL, echo=False)
 
-    # Create all tables before running tests
     async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.drop_all)
         await conn.run_sync(Base.metadata.create_all)
 
-    yield  # Run the actual tests here
+    yield
 
-    # Drop all tables after the tests
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.drop_all)
 
-    # Dispose the engine to close all connections
     await engine.dispose()
 
 

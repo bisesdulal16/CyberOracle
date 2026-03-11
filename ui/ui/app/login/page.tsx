@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { saveAuth } from '../../lib/auth';
+import { ShieldCheckIcon } from '@heroicons/react/24/outline';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:8000';
 
@@ -46,20 +47,23 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-slate-50">
-      <div className="w-full max-w-md bg-white rounded-2xl shadow-sm border border-slate-200 p-8">
+    <div className="min-h-screen flex items-center justify-center bg-slate-950">
+      <div className="w-full max-w-md bg-slate-900 rounded-2xl border border-slate-800 p-8">
         <div className="mb-6 text-center">
-          <div className="text-xs font-semibold text-sky-500">CyberOracle</div>
-          <h1 className="mt-1 text-xl font-semibold text-slate-900">
+          <div className="flex items-center justify-center gap-1.5 mb-2">
+            <ShieldCheckIcon className="w-5 h-5 text-cyan-400" />
+            <span className="text-sm font-semibold text-cyan-400">CyberOracle</span>
+          </div>
+          <h1 className="mt-1 text-xl font-semibold text-slate-100">
             Sign in to Secure AI Gateway
           </h1>
-          <p className="mt-1 text-xs text-slate-500">
+          <p className="mt-1 text-xs text-slate-400">
             Access your AI security dashboard, logs, and compliance reports.
           </p>
         </div>
 
         {error && (
-          <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-xs text-red-700">
+          <div className="mb-4 rounded-lg border border-red-500/20 bg-red-500/10 px-4 py-3 text-xs text-red-400">
             {error}
           </div>
         )}
@@ -68,7 +72,7 @@ export default function LoginPage() {
           <div className="space-y-1">
             <label
               htmlFor="username"
-              className="block text-xs font-medium text-slate-700"
+              className="block text-xs font-medium text-slate-400"
             >
               Username
             </label>
@@ -79,7 +83,7 @@ export default function LoginPage() {
               autoComplete="username"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
-              className="block w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-900 shadow-sm focus:outline-none focus:ring-1 focus:ring-sky-500 focus:border-sky-500"
+              className="block w-full rounded-lg bg-slate-800 border border-slate-700 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/50 focus:border-cyan-500/50 transition"
               placeholder="admin"
             />
           </div>
@@ -87,7 +91,7 @@ export default function LoginPage() {
           <div className="space-y-1">
             <label
               htmlFor="password"
-              className="block text-xs font-medium text-slate-700"
+              className="block text-xs font-medium text-slate-400"
             >
               Password
             </label>
@@ -98,7 +102,7 @@ export default function LoginPage() {
               autoComplete="current-password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="block w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-900 shadow-sm focus:outline-none focus:ring-1 focus:ring-sky-500 focus:border-sky-500"
+              className="block w-full rounded-lg bg-slate-800 border border-slate-700 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/50 focus:border-cyan-500/50 transition"
               placeholder="••••••••"
             />
           </div>
@@ -106,21 +110,13 @@ export default function LoginPage() {
           <button
             type="submit"
             disabled={loading}
-            className="mt-2 inline-flex w-full items-center justify-center rounded-lg bg-sky-600 px-4 py-2.5 text-sm font-medium text-white shadow-sm hover:bg-sky-700 disabled:opacity-60 disabled:cursor-not-allowed"
+            className="mt-2 inline-flex w-full items-center justify-center rounded-lg bg-cyan-500 hover:bg-cyan-400 px-4 py-2.5 text-sm font-semibold text-slate-900 disabled:opacity-60 disabled:cursor-not-allowed transition"
           >
             {loading ? 'Signing in…' : 'Sign in'}
           </button>
         </form>
 
-        <div className="mt-5 rounded-lg border border-slate-100 bg-slate-50 px-4 py-3 text-[11px] text-slate-500 space-y-1">
-          <p className="font-medium text-slate-600">Default credentials</p>
-          <p><span className="font-mono">admin</span> / <span className="font-mono">changeme_admin</span> — full access</p>
-          <p><span className="font-mono">developer</span> / <span className="font-mono">changeme_dev</span> — API access</p>
-          <p><span className="font-mono">auditor</span> / <span className="font-mono">changeme_auditor</span> — read-only</p>
-          <p className="text-slate-400 pt-1">Set your own credentials via env vars — see HANDOFF.md Section 9.</p>
-        </div>
-
-        <p className="mt-5 text-[11px] text-center text-slate-400">
+        <p className="mt-5 text-[11px] text-center text-slate-500">
           By signing in you agree to CyberOracle&apos;s security monitoring and
           logging of AI activity.
         </p>

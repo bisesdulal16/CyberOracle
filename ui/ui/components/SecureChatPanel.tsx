@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { ArrowPathIcon, XMarkIcon } from '@heroicons/react/24/outline';
 
 type PolicyDecision = 'allow' | 'redact' | 'block';
 
@@ -53,10 +54,12 @@ import { apiFetch } from '../lib/auth';
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE ?? 'http://localhost:8010';
 const STORAGE_KEY = 'cyberoracle_secure_chat_conversations_v1';
 
-// --- Basic client-side masking (UI-only; backend DLP still authoritative) ---
+function Spinner({ className }: { className?: string }) {
+  return <ArrowPathIcon className={`animate-spin text-cyan-400 ${className ?? 'w-5 h-5'}`} />;
+}
+
 function maskSensitiveUI(text: string): string {
   if (!text) return text;
-
   text = text.replace(
     /[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g,
     '[EMAIL_REDACTED]'
@@ -64,7 +67,6 @@ function maskSensitiveUI(text: string): string {
   text = text.replace(/\b\d{3}[- ]?\d{2}[- ]?\d{4}\b/g, '[SSN_REDACTED]');
   text = text.replace(/\b(?:\d[ -]*?){13,16}\b/g, '[CARD_REDACTED]');
   text = text.replace(/(?:sk-|AKIA)[0-9A-Za-z]{10,}/g, '[API_KEY_REDACTED]');
-
   return text;
 }
 
@@ -98,30 +100,23 @@ function createEmptyConversation(id?: string): Conversation {
 }
 
 export default function SecureChatPanel() {
-  // MVP: Ollama only
   const [model] = useState<'ollama'>('ollama');
   const subtitle = 'Secure AI conversation with Ollama';
 
   const [prompt, setPrompt] = useState('');
   const [hideSensitive, setHideSensitive] = useState(true);
-
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Conversations (UI history)
   const [conversations, setConversations] = useState<Conversation[]>(() => [createEmptyConversation()]);
   const [activeConvId, setActiveConvId] = useState<string>(() => crypto.randomUUID());
   const [historyOpen, setHistoryOpen] = useState(false);
 
   const scrollRef = useRef<HTMLDivElement | null>(null);
 
-  // Ensure activeConvId matches an existing conversation after first render
   useEffect(() => {
     setConversations((prev) => {
-      // If we already have a conversation matching activeConvId, keep
       if (prev.some((c) => c.id === activeConvId)) return prev;
-
-      // Otherwise replace with a new one with that id
       return [createEmptyConversation(activeConvId)];
     });
   }, [activeConvId]);
@@ -140,7 +135,6 @@ export default function SecureChatPanel() {
   const decision: PolicyDecision = lastAssistant?.security?.policy_decision ?? 'allow';
   const risk = lastAssistant?.security?.risk_score ?? 0;
 
-  // load history from localStorage once
   useEffect(() => {
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
@@ -156,12 +150,9 @@ export default function SecureChatPanel() {
     } catch {
       // ignore
     }
-
-    // If no saved history, ensure we have at least one conversation
     setConversations((prev) => (prev.length > 0 ? prev : [createEmptyConversation(activeConvId)]));
   }, []); // eslint-disable-line
 
-  // persist history
   useEffect(() => {
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(conversations));
@@ -170,7 +161,6 @@ export default function SecureChatPanel() {
     }
   }, [conversations]);
 
-  // auto scroll to bottom on new messages
   useEffect(() => {
     const el = scrollRef.current;
     if (!el) return;
@@ -204,7 +194,6 @@ export default function SecureChatPanel() {
   function newChat() {
     const conv = createEmptyConversation();
     conv.hideSensitive = hideSensitive;
-
     setConversations((prev) => [conv, ...prev]);
     setActiveConvId(conv.id);
     setHistoryOpen(false);
@@ -238,7 +227,6 @@ export default function SecureChatPanel() {
     if (!prompt.trim() || loading) return;
 
     ensureActiveConversationExists();
-
     setLoading(true);
     setError(null);
 
@@ -252,7 +240,6 @@ export default function SecureChatPanel() {
       timestamp: new Date().toISOString(),
     };
 
-    // ✅ Append user message safely
     setConversations((prev) =>
       prev.map((c) => {
         if (c.id !== activeConvId) return c;
@@ -280,9 +267,7 @@ export default function SecureChatPanel() {
       }
 
       const data = (await r.json()) as QueryResponse;
-
-      const assistantText =
-        data.output?.text ?? 'No response text returned from backend.';
+      const assistantText = data.output?.text ?? 'No response text returned from backend.';
 
       const assistantMsg: ChatMessage = {
         id: data.request_id ?? crypto.randomUUID(),
@@ -292,7 +277,6 @@ export default function SecureChatPanel() {
         security: data.security,
       };
 
-      // ✅ Append assistant safely
       setConversations((prev) =>
         prev.map((c) => {
           if (c.id !== activeConvId) return c;
@@ -308,7 +292,7 @@ export default function SecureChatPanel() {
       );
     } catch (e: any) {
       setError(e?.message ?? 'Request failed');
-      setPrompt(userText); // restore input
+      setPrompt(userText);
     } finally {
       setLoading(false);
     }
@@ -324,16 +308,16 @@ export default function SecureChatPanel() {
   return (
     <div className="h-full flex flex-col">
       {/* Top bar */}
-      <div className="flex items-start justify-between gap-4 mb-6">
+      <div className="flex items-start justify-between gap-4 mb-6 border-b border-slate-800 pb-4">
         <div>
-          <h1 className="text-2xl font-semibold text-slate-900">Secure Chat</h1>
-          <p className="text-sm text-slate-500">{subtitle}</p>
+          <h1 className="text-2xl font-semibold text-slate-100">Secure Chat</h1>
+          <p className="text-sm text-slate-400">{subtitle}</p>
         </div>
 
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-3">
           {/* Hide sensitive toggle */}
           <div className="flex items-center gap-2">
-            <span className="text-sm text-slate-700">Hide sensitive data:</span>
+            <span className="text-xs text-slate-400">Hide sensitive:</span>
             <button
               type="button"
               onClick={() => {
@@ -344,25 +328,25 @@ export default function SecureChatPanel() {
                 });
               }}
               className={
-                'relative inline-flex h-6 w-11 items-center rounded-full transition ' +
-                (hideSensitive ? 'bg-violet-600' : 'bg-slate-300')
+                'relative inline-flex h-5 w-10 items-center rounded-full transition ' +
+                (hideSensitive ? 'bg-cyan-500' : 'bg-slate-700')
               }
               aria-pressed={hideSensitive}
             >
               <span
                 className={
-                  'inline-block h-5 w-5 transform rounded-full bg-white transition ' +
+                  'inline-block h-4 w-4 transform rounded-full bg-white transition ' +
                   (hideSensitive ? 'translate-x-5' : 'translate-x-1')
                 }
               />
             </button>
           </div>
 
-          {/* Model dropdown (Ollama only) */}
+          {/* Model select */}
           <div className="flex items-center gap-2">
-            <span className="text-sm text-slate-700">Model:</span>
+            <span className="text-xs text-slate-400">Model:</span>
             <select
-              className="border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white"
+              className="bg-slate-800 border border-slate-700 text-slate-100 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-cyan-500/50"
               value="ollama"
               onChange={() => {}}
             >
@@ -372,11 +356,10 @@ export default function SecureChatPanel() {
 
           {/* History button */}
           <button
-            className="border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white hover:bg-slate-50 flex items-center gap-2"
+            className="bg-slate-800 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-slate-200 hover:bg-slate-700 transition flex items-center gap-1.5"
             onClick={() => setHistoryOpen(true)}
             type="button"
           >
-            <span className="inline-block">🕘</span>
             History
           </button>
         </div>
@@ -387,19 +370,18 @@ export default function SecureChatPanel() {
         {/* Empty state */}
         {messages.length === 0 ? (
           <div className="flex-1 min-h-0 flex flex-col items-center justify-center text-center px-6">
-            <div className="text-2xl font-semibold text-slate-900 mb-2">
+            <div className="text-2xl font-semibold text-slate-100 mb-2">
               Welcome to Secure Chat
             </div>
-            <div className="text-sm text-slate-600 max-w-lg">
+            <div className="text-sm text-slate-400 max-w-lg">
               Start a secure conversation with Ollama. CyberOracle scans inputs and outputs
               for sensitive data before rendering.
             </div>
 
             <div className="mt-10 w-full max-w-2xl">
-              <div className="flex items-center gap-3 border border-slate-200 rounded-xl bg-white shadow-sm px-3 py-2">
-                <div className="text-slate-400 text-xl select-none">＋</div>
+              <div className="flex items-center gap-3 border border-slate-700 rounded-xl bg-slate-900 px-3 py-2">
                 <input
-                  className="flex-1 outline-none text-sm py-2"
+                  className="flex-1 outline-none text-sm py-2 bg-transparent text-slate-100 placeholder:text-slate-500"
                   placeholder="Type your message here…"
                   value={prompt}
                   onChange={(e) => setPrompt(e.target.value)}
@@ -410,7 +392,7 @@ export default function SecureChatPanel() {
               </div>
 
               {error && (
-                <div className="mt-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
+                <div className="mt-3 rounded-lg border border-red-500/20 bg-red-500/10 px-3 py-2 text-xs text-red-400">
                   {error}
                 </div>
               )}
@@ -428,31 +410,30 @@ export default function SecureChatPanel() {
                   if (!isUser) {
                     return (
                       <div key={m.id} className="flex justify-start">
-                        <div className="w-full max-w-3xl border border-slate-200 bg-slate-50 rounded-xl p-4 shadow-sm">
+                        <div className="w-full max-w-3xl bg-slate-800 border border-slate-700 rounded-xl p-4">
                           <div className="flex items-center justify-between mb-2">
                             <div className="flex items-center gap-2">
-                              <div className="h-6 w-6 rounded-full bg-slate-200 flex items-center justify-center text-xs">
-                                🤖
+                              <div className="h-6 w-6 rounded-full bg-cyan-400/10 border border-cyan-500/20 flex items-center justify-center text-xs text-cyan-400">
+                                AI
                               </div>
-                              <div className="text-sm font-semibold text-slate-900">
+                              <div className="text-sm font-semibold text-slate-200">
                                 Assistant
                               </div>
                             </div>
-                            <div className="text-xs text-slate-400">
+                            <div className="text-[11px] text-slate-500">
                               {formatTime(m.timestamp)}
                             </div>
                           </div>
 
-                          <div className="text-sm text-slate-900 whitespace-pre-wrap">
+                          <div className="text-sm text-slate-200 whitespace-pre-wrap">
                             {shownText}
                           </div>
 
-                          {/* mini security chip */}
                           {m.security?.policy_decision && (
                             <div className="mt-3 text-[11px] text-slate-500">
-                              Policy: <span className="font-semibold">{m.security.policy_decision}</span>
+                              Policy: <span className="font-semibold text-slate-400">{m.security.policy_decision}</span>
                               {' · '}
-                              Risk: <span className="font-semibold">{(m.security.risk_score ?? 0).toFixed(2)}</span>
+                              Risk: <span className="font-semibold text-slate-400">{(m.security.risk_score ?? 0).toFixed(2)}</span>
                             </div>
                           )}
                         </div>
@@ -462,37 +443,46 @@ export default function SecureChatPanel() {
 
                   return (
                     <div key={m.id} className="flex justify-end">
-                      <div className="max-w-[420px] bg-indigo-100 border border-indigo-200 rounded-xl p-3">
+                      <div className="max-w-[420px] bg-cyan-500/10 border border-cyan-500/20 rounded-xl p-3">
                         <div className="flex items-center justify-between mb-1">
-                          <div className="text-xs font-semibold text-slate-700">You</div>
-                          <div className="text-xs text-slate-400">{formatTime(m.timestamp)}</div>
+                          <div className="text-xs font-semibold text-slate-200">You</div>
+                          <div className="text-[11px] text-slate-500">{formatTime(m.timestamp)}</div>
                         </div>
-                        <div className="text-sm text-slate-900 whitespace-pre-wrap">{shownText}</div>
+                        <div className="text-sm text-slate-100 whitespace-pre-wrap">{shownText}</div>
                       </div>
                     </div>
                   );
                 })}
+
+                {/* Loading bubble */}
+                {loading && (
+                  <div className="flex justify-start">
+                    <div className="bg-slate-800 border border-slate-700 rounded-xl p-4 flex items-center gap-2">
+                      <Spinner className="w-4 h-4" />
+                      <span className="text-xs text-slate-400">Thinking…</span>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
 
             {/* Bottom input */}
-            <div className="border-t border-slate-200 bg-white p-4">
+            <div className="bg-slate-900 border-t border-slate-800 p-4">
               {error && (
-                <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
+                <div className="mb-3 rounded-lg border border-red-500/20 bg-red-500/10 px-3 py-2 text-xs text-red-400">
                   {error}
                 </div>
               )}
 
               <div className="mx-auto max-w-4xl flex items-end gap-3">
-                <div className="flex-1 border border-slate-900 rounded-xl px-3 py-2">
+                <div className="flex-1 border border-slate-700 rounded-xl bg-slate-800 px-3 py-2">
                   <div className="flex items-start gap-2">
-                    <div className="text-slate-500 text-xl select-none leading-none mt-1">+</div>
                     <textarea
                       value={prompt}
                       onChange={(e) => setPrompt(e.target.value)}
                       onKeyDown={onKeyDown}
                       rows={2}
-                      className="flex-1 outline-none resize-none text-sm"
+                      className="flex-1 outline-none resize-none text-sm bg-transparent text-slate-100 placeholder:text-slate-500"
                       placeholder="Type your message here…"
                     />
                   </div>
@@ -501,7 +491,7 @@ export default function SecureChatPanel() {
                 <button
                   onClick={send}
                   disabled={loading || !prompt.trim()}
-                  className="rounded-lg bg-slate-900 px-4 py-3 text-sm font-semibold text-white disabled:opacity-60"
+                  className="rounded-lg bg-cyan-500 hover:bg-cyan-400 px-4 py-3 text-sm font-semibold text-slate-900 disabled:opacity-60 disabled:cursor-not-allowed transition"
                 >
                   {loading ? 'Sending…' : 'Send'}
                 </button>
@@ -514,24 +504,24 @@ export default function SecureChatPanel() {
       {/* History modal */}
       {historyOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
-          <div className="absolute inset-0 bg-black/40" onClick={() => setHistoryOpen(false)} />
-          <div className="relative bg-white w-[680px] max-w-[92vw] rounded-xl border border-slate-200 shadow-xl overflow-hidden">
-            <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200">
-              <div className="text-sm font-semibold text-slate-900">Chat History</div>
+          <div className="absolute inset-0 bg-black/60" onClick={() => setHistoryOpen(false)} />
+          <div className="relative bg-slate-900 w-[680px] max-w-[92vw] rounded-xl border border-slate-800 shadow-xl overflow-hidden">
+            <div className="flex items-center justify-between px-4 py-3 border-b border-slate-800">
+              <div className="text-sm font-semibold text-slate-200">Chat History</div>
               <div className="flex items-center gap-2">
                 <button
-                  className="text-sm px-3 py-2 rounded-lg bg-slate-900 text-white"
+                  className="text-sm px-3 py-1.5 rounded-lg bg-cyan-500 hover:bg-cyan-400 text-slate-900 font-semibold transition"
                   onClick={newChat}
                   type="button"
                 >
                   New chat
                 </button>
                 <button
-                  className="text-sm px-3 py-2 rounded-lg border border-slate-200 hover:bg-slate-50"
+                  className="text-sm px-3 py-1.5 rounded-lg border border-slate-700 bg-slate-800 text-slate-200 hover:bg-slate-700 transition"
                   onClick={() => setHistoryOpen(false)}
                   type="button"
                 >
-                  Close
+                  <XMarkIcon className="w-4 h-4" />
                 </button>
               </div>
             </div>
@@ -540,19 +530,19 @@ export default function SecureChatPanel() {
               {conversations.length === 0 ? (
                 <div className="p-6 text-sm text-slate-500">No conversations yet.</div>
               ) : (
-                <div className="divide-y divide-slate-100">
+                <div className="divide-y divide-slate-800">
                   {conversations.map((c) => (
-                    <div key={c.id} className="p-4 flex items-center justify-between gap-3">
+                    <div key={c.id} className="p-4 flex items-center justify-between gap-3 hover:bg-slate-800 transition">
                       <button className="flex-1 text-left" onClick={() => loadConversation(c.id)} type="button">
-                        <div className="text-sm font-semibold text-slate-900">{c.title || 'New chat'}</div>
+                        <div className="text-sm font-semibold text-slate-200">{c.title || 'New chat'}</div>
                         <div className="text-xs text-slate-500 mt-1">
-                          Ollama • {new Date(c.updatedAt).toLocaleString()}
+                          Ollama · {new Date(c.updatedAt).toLocaleString()}
                         </div>
                       </button>
 
                       <button
                         type="button"
-                        className="text-xs px-3 py-2 rounded-lg border border-slate-200 hover:bg-red-50 hover:border-red-200 hover:text-red-700"
+                        className="text-xs px-3 py-1.5 rounded-lg border border-slate-700 text-slate-400 hover:bg-red-500/10 hover:border-red-500/20 hover:text-red-400 transition"
                         onClick={() => deleteConversation(c.id)}
                       >
                         Delete
@@ -563,18 +553,18 @@ export default function SecureChatPanel() {
               )}
             </div>
 
-            <div className="px-4 py-3 border-t border-slate-200 text-[11px] text-slate-400">
-              History is stored locally in your browser for now. Later we can back this with DB + Audit Log.
+            <div className="px-4 py-3 border-t border-slate-800 text-[11px] text-slate-500">
+              History is stored locally in your browser.
             </div>
           </div>
         </div>
       )}
 
-      {/* Tiny security summary panel (optional quick view) */}
+      {/* Security summary */}
       {messages.length > 0 && (
         <div className="mt-4 text-[11px] text-slate-500">
-          Latest decision: <span className="font-semibold">{decision}</span> · risk:{' '}
-          <span className="font-semibold">{risk.toFixed(2)}</span>
+          Latest decision: <span className="font-semibold text-slate-400">{decision}</span> · risk:{' '}
+          <span className="font-semibold text-slate-400">{risk.toFixed(2)}</span>
         </div>
       )}
     </div>

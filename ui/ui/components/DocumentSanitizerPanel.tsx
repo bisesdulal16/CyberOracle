@@ -2,6 +2,7 @@
 
 import React, { useRef, useState } from 'react';
 import { apiFetch } from '../lib/auth';
+import { CloudArrowUpIcon, ArrowDownTrayIcon, ArrowPathIcon } from '@heroicons/react/24/outline';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:8000';
 
@@ -19,6 +20,10 @@ type SanitizeResult = {
 };
 
 type UploadState = 'idle' | 'uploading' | 'done' | 'error';
+
+function Spinner({ className }: { className?: string }) {
+  return <ArrowPathIcon className={`animate-spin text-cyan-400 ${className ?? 'w-5 h-5'}`} />;
+}
 
 export default function DocumentSanitizerPanel() {
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -86,28 +91,29 @@ export default function DocumentSanitizerPanel() {
 
   return (
     <div className="mt-4 max-w-3xl">
-      <h1 className="text-2xl font-semibold text-slate-900 mb-1">
+      <h1 className="text-2xl font-semibold text-slate-100 mb-1">
         Document Sanitizer
       </h1>
-      <p className="text-sm text-slate-500 mb-6">
+      <p className="text-sm text-slate-400 mb-6">
         Upload a PDF or DOCX file. CyberOracle will scan it for sensitive data
         (SSNs, emails, credit cards, API keys) and return a redacted version
         safe to share or send to an LLM.
       </p>
 
       {/* Upload card */}
-      <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm mb-6">
+      <div className="bg-slate-900 rounded-xl border border-slate-800 p-6 mb-6">
         <div
-          className="border-2 border-dashed border-slate-300 rounded-lg p-8 text-center cursor-pointer hover:border-sky-400 hover:bg-sky-50 transition"
+          className="border-2 border-dashed border-slate-700 rounded-lg p-8 text-center cursor-pointer hover:border-cyan-500/50 hover:bg-cyan-500/5 transition"
           onClick={() => fileInputRef.current?.click()}
         >
-          <p className="text-sm font-medium text-slate-700 mb-1">
+          <CloudArrowUpIcon className="w-10 h-10 text-slate-500 mx-auto mb-3" />
+          <p className="text-sm font-medium text-slate-300 mb-1">
             Click to select a file
           </p>
-          <p className="text-xs text-slate-400">PDF or DOCX · Max 10 MB</p>
+          <p className="text-xs text-slate-500">PDF or DOCX · Max 10 MB</p>
 
           {selectedFile && (
-            <p className="mt-3 text-xs font-semibold text-sky-700 bg-sky-100 inline-block px-3 py-1 rounded-full">
+            <p className="mt-3 text-xs font-semibold text-cyan-400 bg-cyan-400/10 border border-cyan-500/20 inline-block px-3 py-1 rounded-full">
               {selectedFile.name} ({(selectedFile.size / 1024).toFixed(1)} KB)
             </p>
           )}
@@ -126,16 +132,23 @@ export default function DocumentSanitizerPanel() {
             type="button"
             disabled={!selectedFile || uploadState === 'uploading'}
             onClick={handleScan}
-            className="px-4 py-2 text-xs font-semibold rounded-lg bg-sky-600 text-white hover:bg-sky-700 disabled:opacity-40 disabled:cursor-not-allowed transition"
+            className="flex items-center gap-1.5 px-4 py-2 text-xs font-semibold rounded-lg bg-cyan-500 hover:bg-cyan-400 text-slate-900 disabled:opacity-40 disabled:cursor-not-allowed transition"
           >
-            {uploadState === 'uploading' ? 'Scanning…' : 'Scan & Redact'}
+            {uploadState === 'uploading' ? (
+              <>
+                <Spinner className="w-3.5 h-3.5" />
+                Scanning…
+              </>
+            ) : (
+              'Scan & Redact'
+            )}
           </button>
 
           {(selectedFile || result) && (
             <button
               type="button"
               onClick={handleReset}
-              className="px-4 py-2 text-xs font-semibold rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 transition"
+              className="px-4 py-2 text-xs font-semibold rounded-lg border border-slate-700 bg-slate-800 text-slate-200 hover:bg-slate-700 transition"
             >
               Clear
             </button>
@@ -145,7 +158,7 @@ export default function DocumentSanitizerPanel() {
 
       {/* Error */}
       {uploadState === 'error' && (
-        <div className="mb-6 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-xs text-red-700">
+        <div className="mb-6 rounded-lg border border-red-500/20 bg-red-500/10 px-4 py-3 text-xs text-red-400">
           {errorMessage}
         </div>
       )}
@@ -155,23 +168,23 @@ export default function DocumentSanitizerPanel() {
         <>
           {/* Summary row */}
           <div className="grid grid-cols-3 gap-4 mb-6">
-            <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm text-center">
-              <p className="text-xs text-slate-500 mb-1">File type</p>
-              <p className="text-lg font-semibold text-slate-900">
+            <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 text-center">
+              <p className="text-xs text-slate-400 mb-1">File type</p>
+              <p className="text-lg font-semibold text-slate-100">
                 {result.file_type}
               </p>
             </div>
-            <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm text-center">
-              <p className="text-xs text-slate-500 mb-1">Total redactions</p>
+            <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 text-center">
+              <p className="text-xs text-slate-400 mb-1">Total redactions</p>
               <p
-                className={`text-lg font-semibold ${result.total_redactions > 0 ? 'text-red-600' : 'text-emerald-600'}`}
+                className={`text-lg font-semibold ${result.total_redactions > 0 ? 'text-red-400' : 'text-emerald-400'}`}
               >
                 {result.total_redactions}
               </p>
             </div>
-            <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm text-center">
-              <p className="text-xs text-slate-500 mb-1">Types detected</p>
-              <p className="text-lg font-semibold text-slate-900">
+            <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 text-center">
+              <p className="text-xs text-slate-400 mb-1">Types detected</p>
+              <p className="text-lg font-semibold text-slate-100">
                 {result.findings.length}
               </p>
             </div>
@@ -179,29 +192,29 @@ export default function DocumentSanitizerPanel() {
 
           {/* Findings breakdown */}
           {result.findings.length > 0 && (
-            <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm mb-6">
-              <h2 className="text-sm font-semibold text-slate-900 mb-3">
+            <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 mb-6">
+              <h2 className="text-sm font-semibold text-slate-200 mb-3">
                 Redaction Breakdown
               </h2>
               <table className="w-full text-xs">
                 <thead>
-                  <tr className="text-left text-slate-500 border-b border-slate-100">
-                    <th className="pb-2 font-medium">Entity type</th>
-                    <th className="pb-2 font-medium text-right">Occurrences</th>
+                  <tr className="text-left text-slate-400 bg-slate-800 border-b border-slate-700">
+                    <th className="pb-2 pt-2 px-3 font-medium">Entity type</th>
+                    <th className="pb-2 pt-2 px-3 font-medium text-right">Occurrences</th>
                   </tr>
                 </thead>
                 <tbody>
                   {result.findings.map((f) => (
                     <tr
                       key={f.type}
-                      className="border-b border-slate-50 last:border-0"
+                      className="border-b border-slate-800 last:border-0 hover:bg-slate-800 transition"
                     >
-                      <td className="py-2">
-                        <span className="inline-block bg-red-100 text-red-700 px-2 py-0.5 rounded-full font-semibold text-[10px]">
+                      <td className="py-2.5 px-3">
+                        <span className="inline-block bg-red-400/10 text-red-400 border border-red-500/20 px-2 py-0.5 rounded-full font-semibold text-[10px]">
                           {f.type}
                         </span>
                       </td>
-                      <td className="py-2 text-right font-semibold text-slate-800">
+                      <td className="py-2.5 px-3 text-right font-semibold text-slate-200">
                         {f.count}
                       </td>
                     </tr>
@@ -212,26 +225,27 @@ export default function DocumentSanitizerPanel() {
           )}
 
           {result.total_redactions === 0 && (
-            <div className="mb-6 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-xs text-emerald-700">
+            <div className="mb-6 rounded-lg border border-emerald-500/20 bg-emerald-400/5 px-4 py-3 text-xs text-emerald-400">
               No sensitive data detected. This document is clean.
             </div>
           )}
 
           {/* Redacted text preview */}
-          <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm mb-6">
+          <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 mb-6">
             <div className="flex items-center justify-between mb-3">
-              <h2 className="text-sm font-semibold text-slate-900">
+              <h2 className="text-sm font-semibold text-slate-200">
                 Sanitized Document Preview
               </h2>
               <button
                 type="button"
                 onClick={handleDownload}
-                className="px-3 py-1.5 text-[11px] font-semibold rounded-lg bg-slate-800 text-white hover:bg-slate-700 transition"
+                className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-semibold rounded-lg bg-slate-800 border border-slate-700 text-slate-200 hover:bg-slate-700 transition"
               >
+                <ArrowDownTrayIcon className="w-3.5 h-3.5" />
                 Download .txt
               </button>
             </div>
-            <pre className="text-xs text-slate-700 bg-slate-50 rounded-lg p-4 overflow-auto max-h-64 whitespace-pre-wrap font-mono leading-relaxed border border-slate-100">
+            <pre className="font-mono text-xs text-slate-300 bg-slate-800 border border-slate-700 rounded-lg p-4 overflow-auto max-h-64 whitespace-pre-wrap leading-relaxed">
               {result.redacted_text}
             </pre>
           </div>
