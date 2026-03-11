@@ -16,7 +16,9 @@ def _assert_supported(model_name: str) -> None:
         raise ValueError(f"Unsupported model: {model_name}")
 
 
-async def route_one(prompt: str, model_requested: str, user_payload: dict) -> Dict[str, Any]:
+async def route_one(
+    prompt: str, model_requested: str, user_payload: dict
+) -> Dict[str, Any]:
     _assert_supported(model_requested)
 
     metadata = {
@@ -28,7 +30,9 @@ async def route_one(prompt: str, model_requested: str, user_payload: dict) -> Di
     return await _ollama.generate(prompt, metadata)
 
 
-async def route_many(prompt: str, models: List[str], user_payload: dict) -> List[Dict[str, Any]]:
+async def route_many(
+    prompt: str, models: List[str], user_payload: dict
+) -> List[Dict[str, Any]]:
     if not models:
         raise ValueError("'models' must contain at least 1 model.")
 

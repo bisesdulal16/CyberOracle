@@ -1,10 +1,10 @@
 import pytest
-import asyncio
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from app.models import LogEntry
 from app.db.db import AsyncSessionLocal, Base, DATABASE_URL
 
 # -------------------- FIXTURES --------------------
+
 
 @pytest.fixture(scope="module", autouse=True)
 async def setup_db():

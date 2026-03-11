@@ -16,6 +16,7 @@ ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
 security = HTTPBearer(auto_error=True)
 
+
 def create_access_token(data: dict) -> str:
     """
     Create a JWT access token embedding a user payload.
@@ -37,6 +38,7 @@ def verify_token(token: str) -> dict:
         return payload
     except JWTError:
         raise ValueError("Invalid or expired JWT token")
+
 
 def get_current_user(creds: HTTPAuthorizationCredentials = Depends(security)) -> dict:
     """

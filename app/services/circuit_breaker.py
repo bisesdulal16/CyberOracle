@@ -1,11 +1,12 @@
 import time
 
+
 class CircuitBreaker:
     def __init__(self, fail_threshold: int = 3, cooldown_s: int = 30):
         self.fail_threshold = fail_threshold
         self.cooldown_s = cooldown_s
-        self.failures = {}      # model -> count
-        self.open_until = {}    # model -> timestamp
+        self.failures = {}  # model -> count
+        self.open_until = {}  # model -> timestamp
 
     def allow(self, model: str) -> bool:
         until = self.open_until.get(model)

@@ -2,6 +2,7 @@
 from abc import ABC, abstractmethod
 from typing import Dict, Any
 
+
 class BaseModelAdapter(ABC):
     @abstractmethod
     async def generate(self, prompt: str, metadata: Dict[str, Any]) -> Dict[str, Any]:

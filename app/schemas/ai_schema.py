@@ -6,6 +6,7 @@ from uuid import UUID
 Decision = Literal["pass", "fail"]
 DEFAULT_MODEL = "ollama:llama3"
 
+
 class AIQueryRequest(BaseModel):
     prompt: str = Field(..., min_length=1, max_length=8000)
     model: Optional[str] = None
@@ -27,13 +28,16 @@ class AIQueryRequest(BaseModel):
 
         return self
 
+
 class PolicyResult(BaseModel):
     rbac: Decision
     size: Decision
 
+
 class ModelResult(BaseModel):
     answer: str
     model_used: str
+
 
 class AIQueryResponse(BaseModel):
     request_id: UUID

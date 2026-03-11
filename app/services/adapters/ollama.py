@@ -2,6 +2,7 @@
 from typing import Dict, Any
 from .base import BaseModelAdapter
 
+
 class OllamaAdapter(BaseModelAdapter):
     def __init__(self, timeout_s: int = 30):
         self.timeout_s = timeout_s
