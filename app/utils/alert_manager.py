@@ -22,9 +22,7 @@ SLACK_WEBHOOK_URL = os.getenv("SLACK_WEBHOOK_URL")
 def _send_discord(formatted_message: str) -> None:
     """Dispatch an alert to the configured Discord webhook."""
     if not DISCORD_WEBHOOK_URL:
-        print(
-            "[!] Discord webhook not set. Payload:\n" + formatted_message
-        )
+        print("[!] Discord webhook not set. Payload:\n" + formatted_message)
         return
     try:
         resp = requests.post(
@@ -41,9 +39,7 @@ def _send_discord(formatted_message: str) -> None:
 def _send_slack(formatted_message: str) -> None:
     """Dispatch an alert to the configured Slack Incoming Webhook."""
     if not SLACK_WEBHOOK_URL:
-        print(
-            "[!] Slack webhook not set. Payload:\n" + formatted_message
-        )
+        print("[!] Slack webhook not set. Payload:\n" + formatted_message)
         return
     try:
         # Slack Incoming Webhooks expect {"text": "..."} JSON body

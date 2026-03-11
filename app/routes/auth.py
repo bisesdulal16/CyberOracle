@@ -43,6 +43,7 @@ class LoginResponse(BaseModel):
 # Credential store (env-driven)
 # ---------------------------------------------------------------------------
 
+
 def _build_user_store() -> dict:
     """
     Build a username → (password, role) mapping from environment variables.

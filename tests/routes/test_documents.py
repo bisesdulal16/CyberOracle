@@ -6,7 +6,6 @@ File parsing (pdfplumber / python-docx) is monkeypatched in the DLP test so
 the suite runs without the optional extraction libraries installed.
 """
 
-import io
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
@@ -19,6 +18,7 @@ from app.routes.documents import _count_findings
 # Fixtures
 # ---------------------------------------------------------------------------
 
+
 @pytest.fixture
 def client():
     """Minimal FastAPI app mounting only the documents router."""
@@ -30,6 +30,7 @@ def client():
 # ---------------------------------------------------------------------------
 # Unit tests — _count_findings (no HTTP, no file parsing)
 # ---------------------------------------------------------------------------
+
 
 def test_count_findings_detects_ssn():
     findings = _count_findings("Patient SSN is 123-45-6789.")
@@ -60,6 +61,7 @@ def test_count_findings_multiple_types():
 # Integration tests — HTTP endpoint
 # ---------------------------------------------------------------------------
 
+
 def test_rejects_unsupported_extension(client):
     """Plain text files must be rejected with 400."""
     response = client.post(
@@ -75,7 +77,13 @@ def test_rejects_oversized_file(client):
     oversized = b"x" * (11 * 1024 * 1024)  # 11 MB
     response = client.post(
         "/api/documents/sanitize",
-        files={"file": ("big.docx", oversized, "application/vnd.openxmlformats-officedocument.wordprocessingml.document")},
+        files={
+            "file": (
+                "big.docx",
+                oversized,
+                "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            )
+        },
     )
     assert response.status_code == 413
 

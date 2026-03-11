@@ -29,6 +29,7 @@ MAX_FILE_SIZE_MB = 10
 # Response schema
 # ---------------------------------------------------------------------------
 
+
 class RedactionFinding(BaseModel):
     type: str
     count: int
@@ -45,6 +46,7 @@ class SanitizeResponse(BaseModel):
 # ---------------------------------------------------------------------------
 # Text extraction helpers
 # ---------------------------------------------------------------------------
+
 
 def _extract_text_pdf(content: bytes) -> str:
     """Extract plain text from a PDF using pdfplumber."""
@@ -64,14 +66,13 @@ def _extract_text_docx(content: bytes) -> str:
     from docx import Document  # lazy import — only needed when DOCX is uploaded
 
     doc = Document(io.BytesIO(content))
-    return "\n".join(
-        para.text for para in doc.paragraphs if para.text.strip()
-    )
+    return "\n".join(para.text for para in doc.paragraphs if para.text.strip())
 
 
 # ---------------------------------------------------------------------------
 # Finding counter (runs on original text before redaction)
 # ---------------------------------------------------------------------------
+
 
 def _count_findings(text: str) -> List[RedactionFinding]:
     """
@@ -82,15 +83,14 @@ def _count_findings(text: str) -> List[RedactionFinding]:
     for name, pattern in REGEX_PATTERNS.items():
         matches = re.findall(pattern, text)
         if matches:
-            findings.append(
-                RedactionFinding(type=name.upper(), count=len(matches))
-            )
+            findings.append(RedactionFinding(type=name.upper(), count=len(matches)))
     return sorted(findings, key=lambda f: f.count, reverse=True)
 
 
 # ---------------------------------------------------------------------------
 # Route
 # ---------------------------------------------------------------------------
+
 
 @router.post("/sanitize", response_model=SanitizeResponse)
 async def sanitize_document(file: UploadFile = File(...)):

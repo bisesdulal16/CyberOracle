@@ -63,14 +63,10 @@ async def get_reports_summary(
         until = datetime.utcnow()
 
     async with AsyncSessionLocal() as session:
-        base_filter = and_(
-            LogEntry.created_at >= since, LogEntry.created_at <= until
-        )
+        base_filter = and_(LogEntry.created_at >= since, LogEntry.created_at <= until)
 
         # --- totals ---
-        r_total = await session.execute(
-            select(func.count()).where(base_filter)
-        )
+        r_total = await session.execute(select(func.count()).where(base_filter))
         total = r_total.scalar() or 0
 
         r_blocked = await session.execute(
@@ -96,23 +92,17 @@ async def get_reports_summary(
 
         # --- severity breakdown ---
         r_high = await session.execute(
-            select(func.count()).where(
-                and_(base_filter, LogEntry.severity == "high")
-            )
+            select(func.count()).where(and_(base_filter, LogEntry.severity == "high"))
         )
         high = r_high.scalar() or 0
 
         r_medium = await session.execute(
-            select(func.count()).where(
-                and_(base_filter, LogEntry.severity == "medium")
-            )
+            select(func.count()).where(and_(base_filter, LogEntry.severity == "medium"))
         )
         medium = r_medium.scalar() or 0
 
         r_low = await session.execute(
-            select(func.count()).where(
-                and_(base_filter, LogEntry.severity == "low")
-            )
+            select(func.count()).where(and_(base_filter, LogEntry.severity == "low"))
         )
         low = r_low.scalar() or 0
 
@@ -125,8 +115,7 @@ async def get_reports_summary(
             .limit(10)
         )
         event_type_breakdown = [
-            {"event_type": row[0], "count": row[1]}
-            for row in r_event_types.fetchall()
+            {"event_type": row[0], "count": row[1]} for row in r_event_types.fetchall()
         ]
 
         # --- policy_decision breakdown ---
@@ -137,8 +126,7 @@ async def get_reports_summary(
             .order_by(func.count().desc())
         )
         decision_breakdown = [
-            {"decision": row[0], "count": row[1]}
-            for row in r_decisions.fetchall()
+            {"decision": row[0], "count": row[1]} for row in r_decisions.fetchall()
         ]
 
         # --- top 5 endpoints ---
@@ -150,8 +138,7 @@ async def get_reports_summary(
             .limit(5)
         )
         top_endpoints = [
-            {"endpoint": row[0], "count": row[1]}
-            for row in r_endpoints.fetchall()
+            {"endpoint": row[0], "count": row[1]} for row in r_endpoints.fetchall()
         ]
 
     return {
