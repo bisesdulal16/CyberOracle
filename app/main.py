@@ -1,64 +1,115 @@
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+
+# Database models and async engine
 from app.db.db import Base, engine
-from app.routes.logs import router as logs_router
-from app.routes.dlp import router as dlp_router  # import DLP routes
+
+# Security middleware
 from app.middleware.dlp_filter import DLPFilterMiddleware
 from app.middleware.rate_limiter import RateLimitMiddleware
-from app.utils.exception_handler import secure_exception_handler
-from app.routes.metrics import router as metrics_router
-from app.routes.ai import router as ai_router
 
-# Initialize FastAPI application with metadata
+# API routers
+from app.routes.ai import router as ai_router
+from app.routes.dlp import router as dlp_router
+from app.routes.logs import router as logs_router
+from app.routes.metrics import router as metrics_router
+
+# Global secure exception handler
+from app.utils.exception_handler import secure_exception_handler
+
+
+# ------------------------------------------------
+# Application Lifespan
+# ------------------------------------------------
+# Runs on application startup and shutdown.
+# Used here to ensure database tables are created
+# before the API begins serving requests.
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    async with engine.begin() as conn:
+        # Create database tables if they do not exist
+        await conn.run_sync(Base.metadata.create_all)
+
+    yield
+
+    # Optional shutdown logic
+    # Example:
+    # await engine.dispose()
+
+
+# ------------------------------------------------
+# FastAPI Application Initialization
+# ------------------------------------------------
 app = FastAPI(
     title="CyberOracle Gateway",
     version="1.0.0",
     description="Secure AI gateway ensuring data protection and compliance observability.",
+    lifespan=lifespan,
 )
 
-# UI → backend calls)
+
+# ------------------------------------------------
+# CORS Configuration
+# ------------------------------------------------
+# Restricts browser access to local development origins only.
+# Prevents unauthorized websites from making requests to the API.
 app.add_middleware(
     CORSMiddleware,
-    # Allow any localhost/127.0.0.1 port during development
     allow_origin_regex=r"^http://(localhost|127\.0\.0\.1)(:\d+)?$",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# Register custom DLP middleware for sensitive data filtering
-app.add_middleware(DLPFilterMiddleware)
 
-# Register cutstom Rate-Limiting middleware
+# ------------------------------------------------
+# Security Middleware Stack
+# ------------------------------------------------
+# Order matters:
+# 1. DLP filter scans requests for sensitive data
+# 2. Rate limiter protects API from abuse
+app.add_middleware(DLPFilterMiddleware)
 app.add_middleware(RateLimitMiddleware)
 
-# Register custom Exception Handler middleware
+
+# ------------------------------------------------
+# Global Exception Handler
+# ------------------------------------------------
+# Ensures sensitive internal errors are not exposed
+# to API clients while still being logged securely.
 app.add_exception_handler(Exception, secure_exception_handler)
 
 
-# Health check endpoint to verify uptime and API status
+# ------------------------------------------------
+# Health Check Endpoint
+# ------------------------------------------------
+# Used by:
+# - monitoring systems
+# - container orchestration
+# - uptime checks
 @app.get("/health")
 async def health():
-    """
-    Returns basic service health information.
-    Used for monitoring, CI/CD checks, and Kubernetes readiness probes.
-    """
     return {"status": "OK", "service": "CyberOracle API"}
 
 
-@app.on_event("startup")
-async def startup_event():
-    """Initialize database tables on startup."""
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
+# ------------------------------------------------
+# Router Registration
+# ------------------------------------------------
 
+# AI Gateway endpoints
+# Example: /ai/query
+app.include_router(ai_router, prefix="/ai", tags=["AI Gateway"])
 
-# Include modular routes
+# Log storage and retrieval
+# Example: /logs
 app.include_router(logs_router, prefix="/logs", tags=["Logs"])
+
+# DLP scanning endpoints
+# Example: /api/dlp/scan
 app.include_router(dlp_router, prefix="/api", tags=["DLP"])
 
-# include metrics router for dashboard APIs
-app.include_router(metrics_router)  # routes already have prefix="/api"
-
-# AI gateway endpoint /ai/query
-app.include_router(ai_router, tags=["AI"])
+# System metrics and observability endpoints
+# Example: /metrics
+app.include_router(metrics_router)

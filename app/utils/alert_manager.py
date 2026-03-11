@@ -7,7 +7,7 @@ If webhook is not configured, prints the payload instead (useful for testing).
 
 import os
 import requests
-from datetime import datetime
+from datetime import datetime, timezone
 
 
 DISCORD_WEBHOOK_URL = os.getenv("DISCORD_WEBHOOK_URL")
@@ -18,7 +18,7 @@ def send_alert(message: str, severity: str = "info", source: str = "system"):
     Sends an alert message to Discord or prints it if webhook is not set.
     Includes timestamp and severity for observability.
     """
-    timestamp = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC")
+    timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
     formatted_message = (
         f"⚠️ {severity.upper()} alert from {source}\n" f"{message}\n\n🕒 {timestamp}"
     )
