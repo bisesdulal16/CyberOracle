@@ -1,7 +1,18 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { isAuthenticated, clearAuth, getRole, apiFetch } from '../lib/auth';
 import SecureChatPanel from './SecureChatPanel';
+import DocumentSanitizerPanel from './DocumentSanitizerPanel';
+import CompliancePanel from './CompliancePanel';
+import AuditLogPanel from './AuditLogPanel';
+import AlertsPanel from './AlertsPanel';
+import ReportsPanel from './ReportsPanel';
+import KnowledgeBasePanel from './KnowledgeBasePanel';
+
+// Backend base URL — override via NEXT_PUBLIC_API_BASE_URL in .env.local
+const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:8000';
 
 type SummaryMetrics = {
   totalPrompts24h: number;
@@ -19,62 +30,31 @@ type ComplianceStatus = {
 type AlertItem = {
   id: string;
   type: string;
-  severity: 'Low' | 'Medium' | 'High';
+  severity: string;
   message: string;
   timestamp: string;
 };
 
-// ------- MOCK DATA FOR NOW (no backend needed) -------
-
-const MOCK_SUMMARY: SummaryMetrics = {
-  totalPrompts24h: 486,
-  blockedPrompts: 23,
-  redactedOutputs: 51,
-  highRiskEvents: 7,
-};
-
-const MOCK_COMPLIANCE: ComplianceStatus = {
-  complianceScore: 0.82,
-  compliantControls: 41,
-  totalControls: 50,
-};
-
-const MOCK_ALERTS: AlertItem[] = [
-  {
-    id: '1',
-    type: 'Prompt Injection',
-    severity: 'High',
-    message: 'System prompt extraction attempt detected',
-    timestamp: '10 min ago',
-  },
-  {
-    id: '2',
-    type: 'Model Misuse',
-    severity: 'Medium',
-    message: 'Unauthorized model requested by support-bot role',
-    timestamp: '1 hour ago',
-  },
-  {
-    id: '3',
-    type: 'Data Exfiltration',
-    severity: 'High',
-    message: 'Possible PHI leak blocked by DLP',
-    timestamp: '3 hours ago',
-  },
-];
-
 // Replace this when Grafana is ready
 const GRAFANA_IFRAME_URL = 'about:blank';
 
-function severityColor(severity: AlertItem['severity']) {
-  switch (severity) {
-    case 'High':
-      return 'bg-red-100 text-red-700';
-    case 'Medium':
-      return 'bg-yellow-100 text-yellow-800';
-    default:
-      return 'bg-blue-100 text-blue-700';
-  }
+function relativeTime(iso: string): string {
+  const ms = Date.now() - new Date(iso).getTime();
+  if (isNaN(ms) || ms < 0) return iso;
+  const minutes = Math.floor(ms / 60000);
+  if (minutes < 1) return 'just now';
+  if (minutes < 60) return `${minutes} min ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours} hour${hours > 1 ? 's' : ''} ago`;
+  return `${Math.floor(hours / 24)} day(s) ago`;
+}
+
+function severityColor(severity: string) {
+  const s = severity.toLowerCase();
+  if (s === 'high') return 'bg-red-100 text-red-700';
+  if (s === 'medium') return 'bg-yellow-100 text-yellow-800';
+  if (s === 'low') return 'bg-blue-100 text-blue-700';
+  return 'bg-slate-100 text-slate-600';
 }
 
 const ALL_SECTIONS = [
@@ -94,13 +74,84 @@ const ALL_SECTIONS = [
 type SectionName = (typeof ALL_SECTIONS)[number];
 
 const Dashboard: React.FC = () => {
+  const router = useRouter();
   const [section, setSection] = useState<SectionName>('Dashboard');
+  const [summary, setSummary] = useState<SummaryMetrics | null>(null);
+  const [compliance, setCompliance] = useState<ComplianceStatus | null>(null);
+  const [alerts, setAlerts] = useState<AlertItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [fetchError, setFetchError] = useState(false);
 
-  const summary = MOCK_SUMMARY;
-  const compliance = MOCK_COMPLIANCE;
-  const alerts = MOCK_ALERTS;
+  // Auth guard — redirect to login if no token
+  useEffect(() => {
+    if (!isAuthenticated()) {
+      router.replace('/login');
+    }
+  }, [router]);
 
-  const compliancePercent = Math.round(compliance.complianceScore * 100);
+  useEffect(() => {
+    let cancelled = false;
+
+    async function fetchDashboard() {
+      setLoading(true);
+      setFetchError(false);
+      try {
+        const [metricsRes, complianceRes, alertsRes] = await Promise.all([
+          apiFetch(`${API_BASE}/api/metrics/summary`),
+          apiFetch(`${API_BASE}/api/compliance/status`),
+          apiFetch(`${API_BASE}/api/alerts/recent`),
+        ]);
+
+        if (!metricsRes.ok || !complianceRes.ok || !alertsRes.ok) {
+          throw new Error('One or more API responses were not OK');
+        }
+
+        const [metricsData, complianceData, alertsData] = await Promise.all([
+          metricsRes.json(),
+          complianceRes.json(),
+          alertsRes.json(),
+        ]);
+
+        if (cancelled) return;
+
+        setSummary({
+          totalPrompts24h: metricsData.total_prompts_24h ?? 0,
+          blockedPrompts: metricsData.blocked_prompts ?? 0,
+          redactedOutputs: metricsData.redacted_outputs ?? 0,
+          highRiskEvents: metricsData.high_risk_events ?? 0,
+        });
+
+        setCompliance({
+          complianceScore: complianceData.compliance_score ?? 0,
+          compliantControls: complianceData.compliant_controls ?? 0,
+          totalControls: complianceData.total_controls ?? 0,
+        });
+
+        setAlerts(
+          (alertsData.alerts ?? []).map((a: Record<string, unknown>) => ({
+            id: String(a.id ?? ''),
+            type: String(a.type ?? 'Security Event'),
+            severity: String(a.severity ?? 'info'),
+            message: String(a.message ?? ''),
+            timestamp: String(a.timestamp ?? ''),
+          })),
+        );
+      } catch {
+        if (!cancelled) setFetchError(true);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+
+    fetchDashboard();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const compliancePercent = compliance
+    ? Math.round(compliance.complianceScore * 100)
+    : 0;
 
   const renderMainContent = () => {
     if (section === 'Dashboard') {
@@ -117,28 +168,35 @@ const Dashboard: React.FC = () => {
             </p>
           </header>
 
+          {fetchError && (
+            <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-700">
+              Backend unavailable — start the CyberOracle backend to see live
+              metrics.
+            </div>
+          )}
+
           {/* TOP SUMMARY CARDS */}
           <section className="grid gap-4 grid-cols-1 md:grid-cols-2 xl:grid-cols-4 mb-6">
             <SummaryCard
               title="Total Prompts (24h)"
-              value={summary.totalPrompts24h}
+              value={loading ? '—' : (summary?.totalPrompts24h ?? 0)}
               description="Across all apps & models"
             />
             <SummaryCard
               title="Blocked Prompts"
-              value={summary.blockedPrompts}
+              value={loading ? '—' : (summary?.blockedPrompts ?? 0)}
               description="Stopped by policies & rate limits"
               valueClassName="text-rose-600"
             />
             <SummaryCard
               title="Redacted Responses"
-              value={summary.redactedOutputs}
+              value={loading ? '—' : (summary?.redactedOutputs ?? 0)}
               description="Outputs sanitized by DLP layer"
               valueClassName="text-amber-600"
             />
             <SummaryCard
               title="High-Risk Events"
-              value={summary.highRiskEvents}
+              value={loading ? '—' : (summary?.highRiskEvents ?? 0)}
               description="risk_score above threshold"
               valueClassName="text-red-600"
             />
@@ -160,7 +218,7 @@ const Dashboard: React.FC = () => {
                 <div className="text-right">
                   <p className="text-xs text-slate-500">Overall score</p>
                   <p className="text-xl font-semibold text-slate-900">
-                    {compliancePercent}%
+                    {loading ? '—' : `${compliancePercent}%`}
                   </p>
                 </div>
               </div>
@@ -169,19 +227,24 @@ const Dashboard: React.FC = () => {
                 <div className="w-full h-3 rounded-full bg-slate-100 overflow-hidden">
                   <div
                     className="h-full bg-blue-500 transition-all"
-                    style={{ width: `${compliancePercent}%` }}
+                    style={{ width: loading ? '0%' : `${compliancePercent}%` }}
                   />
                 </div>
                 <div className="flex justify-between mt-2 text-xs text-slate-500">
                   <span>
                     Compliant controls:{' '}
                     <span className="font-semibold text-slate-800">
-                      {compliance.compliantControls}/{compliance.totalControls}
+                      {loading
+                        ? '—'
+                        : `${compliance?.compliantControls ?? 0}/${compliance?.totalControls ?? 0}`}
                     </span>
                   </span>
                   <span>
                     Non-compliant:{' '}
-                    {compliance.totalControls - compliance.compliantControls}
+                    {loading
+                      ? '—'
+                      : (compliance?.totalControls ?? 0) -
+                        (compliance?.compliantControls ?? 0)}
                   </span>
                 </div>
               </div>
@@ -196,35 +259,41 @@ const Dashboard: React.FC = () => {
                 Latest high-risk activity observed by CyberOracle.
               </p>
 
-              <div className="space-y-3">
-                {alerts.map((alert) => (
-                  <div
-                    key={alert.id}
-                    className="border border-slate-100 rounded-lg p-3 hover:bg-slate-50 cursor-pointer transition"
-                  >
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="text-xs font-semibold text-slate-800">
-                        {alert.type}
-                      </span>
-                      <span
-                        className={`text-[10px] px-2 py-0.5 rounded-full font-semibold ${severityColor(
-                          alert.severity,
-                        )}`}
-                      >
-                        {alert.severity} priority
-                      </span>
+              {loading ? (
+                <p className="text-xs text-slate-400">Loading alerts…</p>
+              ) : (
+                <div className="space-y-3">
+                  {alerts.map((alert) => (
+                    <div
+                      key={alert.id}
+                      className="border border-slate-100 rounded-lg p-3 hover:bg-slate-50 cursor-pointer transition"
+                    >
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-xs font-semibold text-slate-800">
+                          {alert.type}
+                        </span>
+                        <span
+                          className={`text-[10px] px-2 py-0.5 rounded-full font-semibold ${severityColor(alert.severity)}`}
+                        >
+                          {alert.severity.charAt(0).toUpperCase() +
+                            alert.severity.slice(1)}{' '}
+                          priority
+                        </span>
+                      </div>
+                      <p className="text-xs text-slate-600">{alert.message}</p>
+                      <p className="text-[10px] text-slate-400 mt-1">
+                        {relativeTime(alert.timestamp)}
+                      </p>
                     </div>
-                    <p className="text-xs text-slate-600">{alert.message}</p>
-                    <p className="text-[10px] text-slate-400 mt-1">
-                      {alert.timestamp}
-                    </p>
-                  </div>
-                ))}
+                  ))}
 
-                {alerts.length === 0 && (
-                  <p className="text-xs text-slate-400">No alerts in the last 24h.</p>
-                )}
-              </div>
+                  {alerts.length === 0 && (
+                    <p className="text-xs text-slate-400">
+                      No alerts in the last 24h.
+                    </p>
+                  )}
+                </div>
+              )}
             </div>
           </section>
 
@@ -256,16 +325,10 @@ const Dashboard: React.FC = () => {
     // --- OTHER SECTIONS ---
     switch (section) {
       case 'Secure Chat':
-        // ✅ this is the missing part: show SecureChatPanel inside dashboard
         return <SecureChatPanel />;
 
       case 'Document Sanitizer':
-        return (
-          <SectionPlaceholder
-            title="Document Sanitizer"
-            description="Here you will upload files and see DLP redactions, PII detection, and safe exports before they are sent to any LLM."
-          />
-        );
+        return <DocumentSanitizerPanel />;
       case 'AI Models':
         return (
           <SectionPlaceholder
@@ -281,40 +344,15 @@ const Dashboard: React.FC = () => {
           />
         );
       case 'Knowledge Base':
-        return (
-          <SectionPlaceholder
-            title="Knowledge Base"
-            description="This is where RAG collections, sensitivity labels, and ingestion policies will live."
-          />
-        );
+        return <KnowledgeBasePanel />;
       case 'Compliance':
-        return (
-          <SectionPlaceholder
-            title="Compliance"
-            description="Here you will see NIST / HIPAA / FERPA mappings, control coverage, and exportable reports for auditors."
-          />
-        );
+        return <CompliancePanel />;
       case 'Alerts':
-        return (
-          <SectionPlaceholder
-            title="Alerts"
-            description="This view will show a full alert feed with filters for severity, model, app, and attack type."
-          />
-        );
+        return <AlertsPanel />;
       case 'Audit Log':
-        return (
-          <SectionPlaceholder
-            title="Audit Log"
-            description="This section will expose a searchable audit trail of all prompts, tool calls, and DLP decisions."
-          />
-        );
+        return <AuditLogPanel />;
       case 'Reports':
-        return (
-          <SectionPlaceholder
-            title="Reports"
-            description="Here we will surface scheduled reports, PDF exports, and Grafana-linked views for leadership."
-          />
-        );
+        return <ReportsPanel />;
       case 'Settings':
         return (
           <SectionPlaceholder
@@ -348,6 +386,26 @@ const Dashboard: React.FC = () => {
             />
           ))}
         </nav>
+
+        {/* Role badge + sign out */}
+        <div className="px-4 py-3 border-t border-slate-100">
+          <div className="mb-2">
+            <p className="text-[10px] text-slate-400">Signed in as</p>
+            <p className="text-xs font-semibold text-slate-700 capitalize">
+              {getRole() ?? 'user'}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              clearAuth();
+              router.push('/login');
+            }}
+            className="w-full text-left rounded-lg px-3 py-2 text-xs font-medium text-red-500 hover:bg-red-50 transition"
+          >
+            Sign out
+          </button>
+        </div>
       </aside>
 
       {/* MAIN CONTENT */}

@@ -8,6 +8,9 @@ from app.middleware.rate_limiter import RateLimitMiddleware
 from app.utils.exception_handler import secure_exception_handler
 from app.routes.metrics import router as metrics_router
 from app.routes.ai import router as ai_router
+from app.routes.documents import router as documents_router
+from app.routes.reports import router as reports_router
+from app.routes.auth import router as auth_router
 
 # Initialize FastAPI application with metadata
 app = FastAPI(
@@ -62,3 +65,12 @@ app.include_router(metrics_router)  # routes already have prefix="/api"
 
 # AI gateway endpoint /ai/query
 app.include_router(ai_router, tags=["AI"])
+
+# Document sanitizer endpoint /api/documents/sanitize
+app.include_router(documents_router)
+
+# Reports summary endpoint /api/reports/summary
+app.include_router(reports_router)
+
+# Auth — POST /auth/login issues JWT
+app.include_router(auth_router)

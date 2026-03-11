@@ -2,23 +2,47 @@
 
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { saveAuth } from '../../lib/auth';
+
+const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:8000';
 
 export default function LoginPage() {
   const router = useRouter();
-  const [email, setEmail] = useState('');
+  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
+    setError('');
 
-    // TODO: call real backend auth here later
-    // For now, just fake a delay and redirect to dashboard.
-    setTimeout(() => {
+    try {
+      const res = await fetch(`${API_BASE}/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password }),
+      });
+
+      if (res.status === 401) {
+        setError('Invalid username or password.');
+        return;
+      }
+
+      if (!res.ok) {
+        setError('Login failed — backend unavailable. Please try again.');
+        return;
+      }
+
+      const data = await res.json();
+      saveAuth(data.access_token, data.role);
+      router.replace('/dashboard');
+    } catch {
+      setError('Cannot reach the backend. Make sure CyberOracle is running on port 8000.');
+    } finally {
       setLoading(false);
-      router.push('/dashboard');
-    }, 600);
+    }
   }
 
   return (
@@ -34,22 +58,29 @@ export default function LoginPage() {
           </p>
         </div>
 
+        {error && (
+          <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-xs text-red-700">
+            {error}
+          </div>
+        )}
+
         <form className="space-y-4" onSubmit={handleSubmit}>
           <div className="space-y-1">
             <label
-              htmlFor="email"
+              htmlFor="username"
               className="block text-xs font-medium text-slate-700"
             >
-              Work email
+              Username
             </label>
             <input
-              id="email"
-              type="email"
+              id="username"
+              type="text"
               required
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              autoComplete="username"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
               className="block w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-900 shadow-sm focus:outline-none focus:ring-1 focus:ring-sky-500 focus:border-sky-500"
-              placeholder="you@company.com"
+              placeholder="admin"
             />
           </div>
 
@@ -64,27 +95,12 @@ export default function LoginPage() {
               id="password"
               type="password"
               required
+              autoComplete="current-password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               className="block w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-900 shadow-sm focus:outline-none focus:ring-1 focus:ring-sky-500 focus:border-sky-500"
               placeholder="••••••••"
             />
-          </div>
-
-          <div className="flex items-center justify-between text-xs">
-            <label className="inline-flex items-center gap-2 text-slate-600">
-              <input
-                type="checkbox"
-                className="h-3 w-3 rounded border-slate-300 text-sky-600 focus:ring-sky-500"
-              />
-              <span>Remember this device</span>
-            </label>
-            <button
-              type="button"
-              className="text-sky-600 hover:text-sky-700"
-            >
-              Forgot password?
-            </button>
           </div>
 
           <button
@@ -96,7 +112,15 @@ export default function LoginPage() {
           </button>
         </form>
 
-        <p className="mt-6 text-[11px] text-center text-slate-400">
+        <div className="mt-5 rounded-lg border border-slate-100 bg-slate-50 px-4 py-3 text-[11px] text-slate-500 space-y-1">
+          <p className="font-medium text-slate-600">Default credentials</p>
+          <p><span className="font-mono">admin</span> / <span className="font-mono">changeme_admin</span> — full access</p>
+          <p><span className="font-mono">developer</span> / <span className="font-mono">changeme_dev</span> — API access</p>
+          <p><span className="font-mono">auditor</span> / <span className="font-mono">changeme_auditor</span> — read-only</p>
+          <p className="text-slate-400 pt-1">Set your own credentials via env vars — see HANDOFF.md Section 9.</p>
+        </div>
+
+        <p className="mt-5 text-[11px] text-center text-slate-400">
           By signing in you agree to CyberOracle&apos;s security monitoring and
           logging of AI activity.
         </p>

@@ -48,6 +48,8 @@ type Conversation = {
   messages: ChatMessage[];
 };
 
+import { apiFetch } from '../lib/auth';
+
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE ?? 'http://localhost:8010';
 const STORAGE_KEY = 'cyberoracle_secure_chat_conversations_v1';
 
@@ -266,7 +268,7 @@ export default function SecureChatPanel() {
     );
 
     try {
-      const r = await fetch(`${API_BASE}/ai/query`, {
+      const r = await apiFetch(`${API_BASE}/ai/query`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ prompt: userText, model: 'ollama' }),
