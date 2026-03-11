@@ -1,23 +1,9 @@
 import pytest
-import asyncio
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from app.models import LogEntry
 from app.db.db import AsyncSessionLocal, Base, DATABASE_URL
 
 # -------------------- FIXTURES --------------------
-
-
-@pytest.fixture(scope="session")
-def event_loop():
-    """
-    Create a single shared event loop for all async tests.
-    This resolves macOS and asyncpg issues where multiple event loops
-    cause 'Future attached to a different loop' errors.
-    """
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
-    yield loop
-    loop.close()
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -67,7 +53,7 @@ async def session():
 # -------------------- TESTS --------------------
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio(loop_scope="session")
 async def test_database_connection():
     """
     Verify that the database engine can connect successfully.
