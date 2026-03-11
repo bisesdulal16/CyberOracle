@@ -18,6 +18,8 @@ from app.routes.metrics import router as metrics_router
 
 # Global secure exception handler
 from app.utils.exception_handler import secure_exception_handler
+from app.routes.ai import router as ai_router
+from contextlib import asynccontextmanager
 
 
 # ------------------------------------------------
@@ -80,6 +82,8 @@ app.add_middleware(RateLimitMiddleware)
 # Ensures sensitive internal errors are not exposed
 # to API clients while still being logged securely.
 app.add_exception_handler(Exception, secure_exception_handler)
+
+app.include_router(ai_router, prefix="/ai", tags=["AI Gateway"])
 
 
 # ------------------------------------------------
