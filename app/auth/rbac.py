@@ -92,68 +92,6 @@ def require_roles(*allowed_roles: str):
 # ------------------------------------------------------------
 # ADDED: Permission-based RBAC enforcement (enterprise model)
 # ------------------------------------------------------------
-def require_permission(permission: str):
-    """
-    Dependency factory enforcing permission-based RBAC.
-
-    Instead of checking roles directly, this verifies whether
-    the user's role grants the required permission according
-    to ROLE_PERMISSIONS in app/auth/permissions.py.
-
-    Example
-    -------
-        @router.get("/logs")
-        async def logs(user=Depends(require_permission("logs.read"))):
-            ...
-    """
-
-    async def _enforce(
-        credentials: HTTPAuthorizationCredentials = Depends(_bearer),
-    ) -> dict:
-
-        if credentials is None:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Authentication required. Provide a Bearer token.",
-                headers={"WWW-Authenticate": "Bearer"},
-            )
-
-        try:
-            payload = verify_token(credentials.credentials)
-        except ValueError:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid or expired token.",
-                headers={"WWW-Authenticate": "Bearer"},
-            )
-
-        role = payload.get("role")
-
-        # Defensive validation
-        if role is None:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN, detail="JWT missing role claim."
-            )
-
-        # Ensure role exists in RBAC policy
-        if role not in ROLE_PERMISSIONS:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN, detail=f"Unknown role '{role}'."
-            )
-
-        allowed_permissions = ROLE_PERMISSIONS[role]
-
-        # Check permission
-        if permission not in allowed_permissions:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail=f"Permission '{permission}' denied for role '{role}'.",
-            )
-
-        return payload
-
-    return _enforce
-
 
 def require_permission(permission: str):
     """
