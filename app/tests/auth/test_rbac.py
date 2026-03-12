@@ -9,26 +9,21 @@ import app.auth.rbac as rbac
 # Helper for creating fake Authorization credentials
 # --------------------------------------------------
 
+
 def make_credentials(token="fake_token"):
-    return HTTPAuthorizationCredentials(
-        scheme="Bearer",
-        credentials=token
-    )
+    return HTTPAuthorizationCredentials(scheme="Bearer", credentials=token)
 
 
 # ==================================================
 # require_roles() tests
 # ==================================================
 
+
 @pytest.mark.asyncio
 async def test_require_roles_success(monkeypatch):
     """Valid token with correct role"""
 
-    monkeypatch.setattr(
-        rbac,
-        "verify_token",
-        lambda token: {"role": "admin"}
-    )
+    monkeypatch.setattr(rbac, "verify_token", lambda token: {"role": "admin"})
 
     dependency = rbac.require_roles("admin")
 
@@ -70,11 +65,7 @@ async def test_require_roles_invalid_token(monkeypatch):
 async def test_require_roles_forbidden(monkeypatch):
     """Valid token but wrong role"""
 
-    monkeypatch.setattr(
-        rbac,
-        "verify_token",
-        lambda token: {"role": "auditor"}
-    )
+    monkeypatch.setattr(rbac, "verify_token", lambda token: {"role": "auditor"})
 
     dependency = rbac.require_roles("admin")
 
@@ -87,6 +78,7 @@ async def test_require_roles_forbidden(monkeypatch):
 # ==================================================
 # require_permission() tests
 # ==================================================
+
 
 @pytest.mark.asyncio
 async def test_permission_missing_token():
@@ -121,17 +113,9 @@ async def test_permission_invalid_token(monkeypatch):
 async def test_permission_missing_role(monkeypatch):
     """JWT has no role claim"""
 
-    monkeypatch.setattr(
-        rbac,
-        "verify_token",
-        lambda token: {}
-    )
+    monkeypatch.setattr(rbac, "verify_token", lambda token: {})
 
-    monkeypatch.setattr(
-        rbac,
-        "get_role_permissions",
-        lambda role: []
-    )
+    monkeypatch.setattr(rbac, "get_role_permissions", lambda role: [])
 
     dependency = rbac.require_permission("logs.read")
 
@@ -145,17 +129,9 @@ async def test_permission_missing_role(monkeypatch):
 async def test_permission_denied(monkeypatch):
     """Role exists but permission not granted"""
 
-    monkeypatch.setattr(
-        rbac,
-        "verify_token",
-        lambda token: {"role": "auditor"}
-    )
+    monkeypatch.setattr(rbac, "verify_token", lambda token: {"role": "auditor"})
 
-    monkeypatch.setattr(
-        rbac,
-        "get_role_permissions",
-        lambda role: ["logs.read"]
-    )
+    monkeypatch.setattr(rbac, "get_role_permissions", lambda role: ["logs.read"])
 
     dependency = rbac.require_permission("documents.scan")
 
@@ -169,17 +145,9 @@ async def test_permission_denied(monkeypatch):
 async def test_permission_allowed(monkeypatch):
     """Role has required permission"""
 
-    monkeypatch.setattr(
-        rbac,
-        "verify_token",
-        lambda token: {"role": "developer"}
-    )
+    monkeypatch.setattr(rbac, "verify_token", lambda token: {"role": "developer"})
 
-    monkeypatch.setattr(
-        rbac,
-        "get_role_permissions",
-        lambda role: ["documents.scan"]
-    )
+    monkeypatch.setattr(rbac, "get_role_permissions", lambda role: ["documents.scan"])
 
     dependency = rbac.require_permission("documents.scan")
 
@@ -192,16 +160,10 @@ async def test_permission_allowed(monkeypatch):
 async def test_admin_override(monkeypatch):
     """Admin override using access_all_endpoints"""
 
-    monkeypatch.setattr(
-        rbac,
-        "verify_token",
-        lambda token: {"role": "admin"}
-    )
+    monkeypatch.setattr(rbac, "verify_token", lambda token: {"role": "admin"})
 
     monkeypatch.setattr(
-        rbac,
-        "get_role_permissions",
-        lambda role: ["access_all_endpoints"]
+        rbac, "get_role_permissions", lambda role: ["access_all_endpoints"]
     )
 
     dependency = rbac.require_permission("any_permission")

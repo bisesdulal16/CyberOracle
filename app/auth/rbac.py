@@ -28,12 +28,7 @@ Error codes
 
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-
 from app.auth.jwt_utils import verify_token
-
-# ADDED: import the RBAC permission policy map created in Step 2
-from app.auth.permissions import ROLE_PERMISSIONS
-
 from app.auth.policy_loader import get_role_permissions
 
 # HTTPBearer extracts "Authorization: Bearer <token>" from the request
@@ -92,6 +87,7 @@ def require_roles(*allowed_roles: str):
 # ------------------------------------------------------------
 # ADDED: Permission-based RBAC enforcement (enterprise model)
 # ------------------------------------------------------------
+
 
 def require_permission(permission: str):
     """
