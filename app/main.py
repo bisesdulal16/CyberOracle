@@ -18,8 +18,6 @@ from app.routes.metrics import router as metrics_router
 
 # Global secure exception handler
 from app.utils.exception_handler import secure_exception_handler
-from app.routes.ai import router as ai_router
-from contextlib import asynccontextmanager
 
 
 # ------------------------------------------------
