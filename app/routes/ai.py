@@ -4,13 +4,16 @@ import time
 import uuid
 from typing import List
 
-from fastapi import APIRouter, HTTPException, Request, Response
+from fastapi import APIRouter, HTTPException, Request, Response, Depends
 from pydantic import BaseModel, Field
 
 from app.services.ollama_client import OllamaClient
 from app.services import dlp_engine
 from app.services.dlp_engine import PolicyDecision
 from app.utils.logger import log_request, mask_sensitive
+
+# RBAC permission enforcement
+from app.auth.rbac import require_permission
 
 router = APIRouter()
 
@@ -39,8 +42,13 @@ async def ai_query_options_slash():
     return Response(status_code=200)
 
 
+# RBAC: only roles with test_api_endpoints permission may access the AI gateway
 @router.post("/ai/query", response_model=AIQueryResponse)
-async def ai_query(req: AIQueryRequest, request: Request):
+async def ai_query(
+    req: AIQueryRequest,
+    request: Request,
+    _user: dict = Depends(require_permission("test_api_endpoints")),
+):
     """
     Secure AI Gateway endpoint (MVP: Ollama-only)
     Flow:
