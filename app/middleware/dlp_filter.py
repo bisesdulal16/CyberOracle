@@ -7,7 +7,6 @@ sensitive data such as SSNs, credit card numbers, emails, or API keys.
 If detected, the values are redacted before the data reaches the
 main application or database layer.
 
-
 This version uses the central Presidio-based DLP engine plus custom patterns
 from app.middleware.dlp_presidio, and triggers a single alert per request.
 """
@@ -50,6 +49,10 @@ class DLPFilterMiddleware(BaseHTTPMiddleware):
     """
 
     async def dispatch(self, request: Request, call_next):
+        # ✅ IMPORTANT: allow CORS preflight to pass through untouched
+        if request.method == "OPTIONS":
+            return await call_next(request)
+
         detected_entities: Set[str] = set()
 
         # Target only data-carrying methods

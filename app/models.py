@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Text, DateTime
+from sqlalchemy import Column, Integer, String, Text, DateTime, Float
 from datetime import datetime
 from app.db.db import Base
 
@@ -19,8 +19,23 @@ class LogEntry(Base):
     # Response status code (e.g., 200, 404)
     status_code = Column(Integer, nullable=False)
 
-    # Optional message or request body
+    # Optional message or request body (may be Fernet-encrypted if DB_ENCRYPTION_ENABLED=true)
     message = Column(Text, nullable=True)
 
     # Timestamp when the log was created (UTC)
     created_at = Column(DateTime, default=datetime.utcnow)
+
+    # Structured event classification (e.g. "ai_query", "ai_query_blocked", "dlp_alert")
+    event_type = Column(String(50), nullable=True, index=True)
+
+    # Coarse severity level derived from risk_score: "low", "medium", "high"
+    severity = Column(String(20), nullable=True, index=True)
+
+    # Continuous risk score in [0.0, 1.0] produced by the DLP engine
+    risk_score = Column(Float, nullable=True)
+
+    # Component that generated the log entry (e.g. "ai_route", "dlp_middleware")
+    source = Column(String(100), nullable=True)
+
+    # DLP policy outcome: "allow", "redact", or "block"
+    policy_decision = Column(String(20), nullable=True, index=True)
