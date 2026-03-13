@@ -1,0 +1,85 @@
+{
+  "name": "CyberOracle — Alert Dispatcher",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [{ "field": "minutes", "minutesInterval": 5 }]
+        }
+      },
+      "name": "Every 5 Minutes",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "url": "http://localhost:8000/api/alerts/recent",
+        "options": {}
+      },
+      "name": "Fetch Alerts",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.alerts[0].severity }}",
+              "operation": "equals",
+              "value2": "high"
+            }
+          ]
+        }
+      },
+      "name": "High Severity?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.SLACK_WEBHOOK_URL }}",
+        "requestMethod": "POST",
+        "jsonParameters": true,
+        "bodyParametersJson": "={ \"text\": \"[CyberOracle] HIGH alert: {{ $json.alerts[0].type }} — {{ $json.alerts[0].message }}\" }"
+      },
+      "name": "Notify Slack",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [900, 200]
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.DISCORD_WEBHOOK_URL }}",
+        "requestMethod": "POST",
+        "jsonParameters": true,
+        "bodyParametersJson": "={ \"content\": \"**[CyberOracle] HIGH alert**\\n{{ $json.alerts[0].type }}\\n{{ $json.alerts[0].message }}\" }"
+      },
+      "name": "Notify Discord",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [900, 400]
+    }
+  ],
+  "connections": {
+    "Every 5 Minutes": {
+      "main": [[{ "node": "Fetch Alerts", "type": "main", "index": 0 }]]
+    },
+    "Fetch Alerts": {
+      "main": [[{ "node": "High Severity?", "type": "main", "index": 0 }]]
+    },
+    "High Severity?": {
+      "main": [
+        [
+          { "node": "Notify Slack", "type": "main", "index": 0 },
+          { "node": "Notify Discord", "type": "main", "index": 0 }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {}
+}

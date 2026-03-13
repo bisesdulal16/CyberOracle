@@ -37,7 +37,16 @@ def verify_token(token: str) -> dict:
     """
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+
+        # ADDED: additional defensive validation to ensure required RBAC fields exist
+        if "sub" not in payload:
+            raise ValueError("JWT missing subject claim")
+
+        if "role" not in payload:
+            raise ValueError("JWT missing role claim required for RBAC")
+
         return payload
+
     except JWTError:
         raise ValueError("Invalid or expired JWT token")
 
