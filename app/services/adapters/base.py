@@ -19,4 +19,4 @@ class BaseModelAdapter(ABC):
             answer    : str  — the model's text response
             model_used: str  — the model identifier that was used
         """
-        ...
+        raise NotImplementedError

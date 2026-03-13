@@ -6,7 +6,6 @@ import time
 class CircuitBreaker:
     """
     Simple in-memory circuit breaker per model.
-
     After `fail_threshold` consecutive failures the circuit opens
     and all requests are rejected for `cooldown_s` seconds.
     """

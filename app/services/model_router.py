@@ -31,10 +31,12 @@ async def route_one(
     Returns a dict with 'answer' and 'model_used'.
     """
     _assert_supported(model_requested)
+
     metadata = {
         "user_id": user_payload.get("user_id") or user_payload.get("id"),
         "model_name": model_requested,
     }
+
     return await _ollama.generate(prompt, metadata)
 
 
@@ -53,4 +55,5 @@ async def route_many(
     results: List[Dict[str, Any]] = []
     for model in models:
         results.append(await route_one(prompt, model, user_payload))
+
     return results

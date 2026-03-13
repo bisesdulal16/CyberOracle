@@ -12,7 +12,7 @@ SLACK_WEBHOOK_URL    — Slack Incoming Webhook URL     (optional)
 
 import os
 import requests
-from datetime import datetime
+from datetime import datetime, timezone
 
 
 DISCORD_WEBHOOK_URL = os.getenv("DISCORD_WEBHOOK_URL")
@@ -70,7 +70,7 @@ def send_alert(message: str, severity: str = "info", source: str = "system"):
     -------
     The formatted message string (useful for test assertions).
     """
-    timestamp = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC")
+    timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
     formatted_message = (
         f"[CyberOracle] {severity.upper()} alert from {source}\n"
         f"{message}\n"
