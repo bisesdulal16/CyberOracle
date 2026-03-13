@@ -57,9 +57,9 @@ def test_metrics_summary_endpoint(monkeypatch):
     fake_session = FakeSession(
         [
             FakeScalarResult(12),  # total_prompts_24h
-            FakeScalarResult(3),   # blocked_prompts
-            FakeScalarResult(2),   # redacted_outputs
-            FakeScalarResult(1),   # high_risk_events
+            FakeScalarResult(3),  # blocked_prompts
+            FakeScalarResult(2),  # redacted_outputs
+            FakeScalarResult(1),  # high_risk_events
         ]
     )
 
