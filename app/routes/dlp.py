@@ -1,9 +1,10 @@
 # app/routes/dlp.py
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 
 from app.middleware.dlp_presidio import presidio_scan
+from app.auth.rbac import require_roles
 
 router = APIRouter()
 
@@ -18,7 +19,10 @@ class ScanResponse(BaseModel):
 
 
 @router.post("/scan", response_model=ScanResponse)
-async def scan_text(payload: ScanRequest):
+async def scan_text(
+    payload: ScanRequest,
+    _user: dict = Depends(require_roles("admin", "developer")),
+):
     """
     Scan arbitrary text for sensitive data using the Presidio DLP engine.
     Returns the redacted text and a list of detected entity types.

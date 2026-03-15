@@ -10,7 +10,7 @@ Security Notes (OWASP-ASVS 9.2):
 
 from typing import Optional
 
-from fastapi import APIRouter, Query, Request
+from fastapi import APIRouter, Depends, Query, Request
 from fastapi.responses import JSONResponse
 from sqlalchemy import select
 
@@ -19,6 +19,7 @@ from app.models import LogEntry
 from app.schemas.log_schema import LogIngest
 from app.utils.db_encryption import decrypt_value
 from app.utils.logger import log_request, mask_sensitive, secure_log
+from app.auth.rbac import require_roles
 
 router = APIRouter()
 
@@ -106,7 +107,10 @@ async def create_log(request: Request):
 
 
 @router.post("/ingest")
-async def ingest_logs(payload: LogIngest):
+async def ingest_logs(
+    payload: LogIngest,
+    _user: dict = Depends(require_roles("admin", "developer")),
+):
     """
     Main endpoint for log ingestion.
     Stores masked logs in the database.
