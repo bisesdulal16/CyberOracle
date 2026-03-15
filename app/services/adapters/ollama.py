@@ -26,4 +26,8 @@ class OllamaAdapter(BaseModelAdapter):
             model_tag = model_name
 
         answer = await self._client.generate(model_tag, prompt)
-        return {"answer": answer, "model_used": model_name}
+
+        return {
+            "answer": answer,
+            "model_used": model_name,
+        }
