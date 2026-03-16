@@ -27,10 +27,7 @@ router = APIRouter()
 
 
 @router.get("/")
-async def get_logs():
-    """
-    Health check for the logs endpoint.
-    """
+async def get_logs(_: dict = Depends(require_permission("view_all_logs"))):
     return {"message": "Logs endpoint active"}
 
 
