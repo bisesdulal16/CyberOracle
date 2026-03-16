@@ -25,9 +25,6 @@ from app.services.model_router import route_many, route_one
 # Logging utilities
 from app.utils.logger import log_request, secure_log
 
-# RBAC permission enforcement
-from app.auth.rbac import require_permission
-
 router = APIRouter()
 
 
