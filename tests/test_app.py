@@ -13,11 +13,22 @@ Testing Framework:
 - Executed automatically via GitHub Actions (CI/CD)
 """
 
+import os
+import pytest
 from fastapi.testclient import TestClient
 from app.main import app
 
 # Initialize a testing client for the FastAPI app
 client = TestClient(app)
+
+
+@pytest.fixture(autouse=True)
+def _bypass_rate_limit():
+    """Remove DISABLE_RATE_LIMIT_TEST so the PYTEST=1 bypass path is active."""
+    previous = os.environ.pop("DISABLE_RATE_LIMIT_TEST", None)
+    yield
+    if previous is not None:
+        os.environ["DISABLE_RATE_LIMIT_TEST"] = previous
 
 
 def test_health_endpoint():

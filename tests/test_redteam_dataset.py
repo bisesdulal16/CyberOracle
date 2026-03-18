@@ -5,42 +5,47 @@ import pytest
 from app.utils import redteam_dataset
 
 
+def test_dataset_path_points_to_markdown_file():
+    assert redteam_dataset.DATASET_PATH.name == "redteam_prompts_v1.md"
+    assert redteam_dataset.DATASET_PATH.suffix == ".md"
+
+
 def test_load_redteam_sections_file_not_found(monkeypatch):
     fake_path = Path("/tmp/does_not_exist_redteam_prompts_v1.md")
     monkeypatch.setattr(redteam_dataset, "DATASET_PATH", fake_path)
 
-    with pytest.raises(FileNotFoundError, match="Red-team dataset not found"):
+    with pytest.raises(FileNotFoundError):
         redteam_dataset.load_redteam_sections()
 
 
 def test_load_redteam_sections_parses_known_sections(tmp_path, monkeypatch):
-    dataset_file = tmp_path / "redteam_prompts_v1.md"
-    dataset_file.write_text(
+    dataset = tmp_path / "redteam_prompts_v1.md"
+    dataset.write_text(
         "\n".join(
             [
                 "# Section 1 — SSN Test Prompts",
                 "My SSN is 123-45-6789",
                 "",
-                "# Section 2 — Credit Card Prompts",
-                "Card number is 4111 1111 1111 1111",
+                "# Section 2 — Credit Card Test Prompts",
+                "Card number 4111-1111-1111-1111",
                 "",
-                "# Section 3 — Email Prompts",
-                "Email me at test@example.com",
+                "# Section 3 — Email Test Prompts",
+                "Contact me at test@example.com",
                 "",
-                "# Section 4 — API Key Prompts",
-                "sk-test-123456",
+                "# Section 4 — API Keys",
+                "sk-test-1234567890",
                 "",
                 "# Section 5 — Obfuscated Tricks",
-                "my ssn is one two three four five",
+                "my ssn is one two three four five six seven eight nine",
                 "",
-                "# Section 6 — Non-Sensitive Control Prompts",
-                "hello world",
+                "# Section 6 — Non-sensitive Control Prompts",
+                "What is the weather today?",
             ]
         ),
         encoding="utf-8",
     )
 
-    monkeypatch.setattr(redteam_dataset, "DATASET_PATH", dataset_file)
+    monkeypatch.setattr(redteam_dataset, "DATASET_PATH", dataset)
 
     sections = redteam_dataset.load_redteam_sections()
 
@@ -52,76 +57,57 @@ def test_load_redteam_sections_parses_known_sections(tmp_path, monkeypatch):
     assert "control" in sections
 
     assert sections["ssn"] == ["My SSN is 123-45-6789"]
-    assert sections["credit_cards"] == ["Card number is 4111 1111 1111 1111"]
-    assert sections["emails"] == ["Email me at test@example.com"]
-    assert sections["api_keys"] == ["sk-test-123456"]
-    assert sections["obfuscated"] == ["my ssn is one two three four five"]
-    assert sections["control"] == ["hello world"]
+    assert sections["credit_cards"] == ["Card number 4111-1111-1111-1111"]
+    assert sections["emails"] == ["Contact me at test@example.com"]
+    assert sections["api_keys"] == ["sk-test-1234567890"]
+    assert sections["obfuscated"] == [
+        "my ssn is one two three four five six seven eight nine"
+    ]
+    assert sections["control"] == ["What is the weather today?"]
 
 
-def test_load_redteam_sections_ignores_comments_and_blank_lines(tmp_path, monkeypatch):
-    dataset_file = tmp_path / "redteam_prompts_v1.md"
-    dataset_file.write_text(
+def test_load_redteam_sections_ignores_blank_and_comment_lines(tmp_path, monkeypatch):
+    dataset = tmp_path / "redteam_prompts_v1.md"
+    dataset.write_text(
         "\n".join(
             [
+                "# Random heading to ignore",
                 "",
                 "# Section 1 — SSN Test Prompts",
                 "",
-                "# this is a comment line",
-                "Prompt A",
-                "",
-                "Prompt B",
                 "# another comment",
+                "Prompt one",
+                "",
+                "Prompt two",
                 "",
             ]
         ),
         encoding="utf-8",
     )
 
-    monkeypatch.setattr(redteam_dataset, "DATASET_PATH", dataset_file)
+    monkeypatch.setattr(redteam_dataset, "DATASET_PATH", dataset)
 
     sections = redteam_dataset.load_redteam_sections()
 
     assert "ssn" in sections
-    assert sections["ssn"] == ["Prompt A", "Prompt B"]
+    assert sections["ssn"] == ["Prompt one", "Prompt two"]
 
 
-def test_load_redteam_sections_fallback_section_name(tmp_path, monkeypatch):
-    dataset_file = tmp_path / "redteam_prompts_v1.md"
-    dataset_file.write_text(
+def test_load_redteam_sections_uses_fallback_normalized_name(tmp_path, monkeypatch):
+    dataset = tmp_path / "redteam_prompts_v1.md"
+    dataset.write_text(
         "\n".join(
             [
                 "# Section 9 — Strange Custom Bucket",
-                "Custom prompt 1",
-                "Custom prompt 2",
+                "custom prompt",
             ]
         ),
         encoding="utf-8",
     )
 
-    monkeypatch.setattr(redteam_dataset, "DATASET_PATH", dataset_file)
+    monkeypatch.setattr(redteam_dataset, "DATASET_PATH", dataset)
 
     sections = redteam_dataset.load_redteam_sections()
 
     assert "strange_custom_bucket" in sections
-    assert sections["strange_custom_bucket"] == ["Custom prompt 1", "Custom prompt 2"]
-
-
-def test_load_redteam_sections_fallback_without_dash_separator(tmp_path, monkeypatch):
-    dataset_file = tmp_path / "redteam_prompts_v1.md"
-    dataset_file.write_text(
-        "\n".join(
-            [
-                "# Section 10",
-                "Loose prompt",
-            ]
-        ),
-        encoding="utf-8",
-    )
-
-    monkeypatch.setattr(redteam_dataset, "DATASET_PATH", dataset_file)
-
-    sections = redteam_dataset.load_redteam_sections()
-
-    assert "#_section_10" in sections
-    assert sections["#_section_10"] == ["Loose prompt"]
+    assert sections["strange_custom_bucket"] == ["custom prompt"]

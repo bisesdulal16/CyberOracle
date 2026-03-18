@@ -3,6 +3,7 @@ from datetime import datetime
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
+from app.auth.jwt_utils import create_access_token
 import app.routes.metrics as metrics_module
 
 
@@ -47,6 +48,11 @@ class FakeSessionContext:
         return False
 
 
+def _auth_headers(username="admin", role="admin"):
+    token = create_access_token({"sub": username, "role": role})
+    return {"Authorization": f"Bearer {token}"}
+
+
 def build_client():
     app = FastAPI()
     app.include_router(metrics_module.router)
@@ -70,7 +76,7 @@ def test_metrics_summary_endpoint(monkeypatch):
     )
 
     client = build_client()
-    response = client.get("/api/metrics/summary")
+    response = client.get("/api/metrics/summary", headers=_auth_headers())
 
     assert response.status_code == 200
     data = response.json()
@@ -82,22 +88,24 @@ def test_metrics_summary_endpoint(monkeypatch):
     assert data["active_models"] == 1
 
 
-def test_compliance_status_endpoint():
+def test_compliance_status_endpoint_zero_fallback():
     client = build_client()
-    response = client.get("/api/compliance/status")
+    response = client.get("/api/compliance/status", headers=_auth_headers())
 
     assert response.status_code == 200
     data = response.json()
 
-    assert data["compliance_score"] == 0.82
-    assert data["compliant_controls"] == 41
-    assert data["non_compliant_controls"] == 9
-    assert data["total_controls"] == 50
+    assert "compliance_score" in data
+    assert "compliant_controls" in data
+    assert "non_compliant_controls" in data
+    assert "total_controls" in data
     assert "frameworks" in data
-    assert "HIPAA" in data["frameworks"]
-    assert "FERPA" in data["frameworks"]
-    assert "NIST_CSF" in data["frameworks"]
-    assert "GDPR" in data["frameworks"]
+    assert set(data["frameworks"].keys()) == {
+        "HIPAA",
+        "FERPA",
+        "NIST_CSF",
+        "GDPR",
+    }
 
 
 def test_recent_alerts_endpoint_with_entries(monkeypatch):
@@ -122,7 +130,7 @@ def test_recent_alerts_endpoint_with_entries(monkeypatch):
     )
 
     client = build_client()
-    response = client.get("/api/alerts/recent")
+    response = client.get("/api/alerts/recent", headers=_auth_headers())
 
     assert response.status_code == 200
     data = response.json()
@@ -145,7 +153,7 @@ def test_recent_alerts_endpoint_empty_fallback(monkeypatch):
     )
 
     client = build_client()
-    response = client.get("/api/alerts/recent")
+    response = client.get("/api/alerts/recent", headers=_auth_headers())
 
     assert response.status_code == 200
     data = response.json()

@@ -12,9 +12,12 @@ from app.middleware.rate_limiter import RateLimitMiddleware
 
 # API routers
 from app.routes.ai import router as ai_router
+from app.routes.auth import router as auth_router
 from app.routes.dlp import router as dlp_router
+from app.routes.documents import router as documents_router
 from app.routes.logs import router as logs_router
 from app.routes.metrics import router as metrics_router
+from app.routes.reports import router as reports_router
 
 # Global secure exception handler
 from app.utils.exception_handler import secure_exception_handler
@@ -81,8 +84,6 @@ app.add_middleware(RateLimitMiddleware)
 # to API clients while still being logged securely.
 app.add_exception_handler(Exception, secure_exception_handler)
 
-app.include_router(ai_router, prefix="/ai", tags=["AI Gateway"])
-
 
 # ------------------------------------------------
 # Health Check Endpoint
@@ -102,16 +103,28 @@ async def health():
 
 # AI Gateway endpoints
 # Example: /ai/query
-app.include_router(ai_router, prefix="/ai", tags=["AI Gateway"])
+app.include_router(ai_router, tags=["AI Gateway"])
 
 # Log storage and retrieval
-# Example: /logs
+# Example: /logs/list, /logs/ingest
 app.include_router(logs_router, prefix="/logs", tags=["Logs"])
 
 # DLP scanning endpoints
-# Example: /api/dlp/scan
+# Example: /api/scan
 app.include_router(dlp_router, prefix="/api", tags=["DLP"])
 
 # System metrics and observability endpoints
-# Example: /metrics
+# Example: /api/metrics/summary, /api/compliance/status, /api/alerts/recent
 app.include_router(metrics_router)
+
+# Document sanitizer endpoint
+# Example: /api/documents/sanitize
+app.include_router(documents_router)
+
+# Reports summary endpoint
+# Example: /api/reports/summary
+app.include_router(reports_router)
+
+# Authentication endpoint
+# Example: /auth/login
+app.include_router(auth_router)
