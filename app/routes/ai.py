@@ -1,367 +1,243 @@
+# app/routes/ai.py
+
 import time
+import uuid
 from typing import List
-from uuid import uuid4
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, Response
+from pydantic import BaseModel, Field
 
-# JWT authentication dependency
-from app.auth.jwt_utils import get_current_user
-
-# Request/response schemas for the AI endpoint
-from app.schemas.ai_schema import (
-    AIQueryRequest,
-    AIQueryResponse,
-    ModelResult,
-    PolicyResult,
-)
-
-# DLP engine used for scanning prompts and model outputs
+from app.auth.rbac import require_roles
+from app.services.ollama_client import OllamaClient
 from app.services import dlp_engine
 from app.services.dlp_engine import PolicyDecision
-
-# Model routing layer (handles adapter dispatching)
-from app.services.model_router import route_many, route_one
-
-# Logging utilities
-from app.utils.logger import log_request, secure_log
+from app.utils.logger import log_request, mask_sensitive
 
 router = APIRouter()
 
 
-# Main AI query endpoint
-# Handles:
-# - authentication
-# - input validation
-# - DLP scanning
-# - model routing
-# - output filtering
-# - structured logging
-@router.post("/query", response_model=AIQueryResponse)
+class AIQueryRequest(BaseModel):
+    prompt: str = Field(..., min_length=1, max_length=8000)
+    # Keep field for backward compat, but we will ignore it for MVP
+    model: str = Field(default="ollama")
+
+
+class AIQueryResponse(BaseModel):
+    request_id: str
+    model: str
+    output: dict
+    security: dict
+    meta: dict
+
+
+@router.options("/ai/query")
+async def ai_query_options():
+    return Response(status_code=200)
+
+
+@router.options("/ai/query/")
+async def ai_query_options_slash():
+    return Response(status_code=200)
+
+
+@router.post("/ai/query", response_model=AIQueryResponse)
 async def ai_query(
-    payload: AIQueryRequest,
-    user_payload: dict = Depends(get_current_user),
+    req: AIQueryRequest,
+    request: Request,
+    _user: dict = Depends(require_roles("admin", "developer")),
 ):
-    # Generate unique request ID for traceability
-    request_id = uuid4()
+    """
+    Secure AI Gateway endpoint (MVP: Ollama-only)
+    Flow:
+      1) DLP scan input
+      2) Block early if needed
+      3) Call Ollama
+      4) DLP scan output
+      5) redact/block output if needed
+      6) log masked event
+      7) return response with security metadata
+    """
 
-    # Start latency timer
-    t0 = time.perf_counter()
+    start = time.time()
+    request_id = str(uuid.uuid4())
+    client_ip = request.client.host if request.client else None
 
-    # Basic request size policy check
-    size_ok = len(payload.prompt) <= 8000
+    # ✅ MVP: Force Ollama model tag (avoid client sending "openai" etc.)
+    model = "llama3:latest"
 
-    # Policy tracking object
-    policy = PolicyResult(rbac="pass", size="pass" if size_ok else "fail")
-
-    # Reject request if prompt exceeds allowed size
-    if not size_ok:
-        await _log_ai(
-            request_id=request_id,
-            user_payload=user_payload,
-            model_requested="N/A",
-            model_used="N/A",
-            latency_ms=0,
-            policy=policy,
-            status_code=413,
-            risk_score=None,
-            rules_triggered=[],
-            blocked=True,
-            redacted=False,
-        )
-
-        raise HTTPException(
-            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
-            detail={
-                "request_id": str(request_id),
-                "policy": policy.model_dump(),
-            },
-        )
-
-    # ------------------------------
-    # INPUT DLP SCAN
-    # ------------------------------
-
-    # Scan prompt for sensitive data
-    input_redacted_text, input_findings = dlp_engine.scan_text(payload.prompt)
-
-    # Decide policy based on findings
+    # ------------------------------------------------------------------
+    # 1) INPUT DLP
+    # ------------------------------------------------------------------
+    input_redacted_text, input_findings = dlp_engine.scan_text(req.prompt)
     input_decision = dlp_engine.decide(input_findings)
 
-    # Extract triggered rule names
     input_rules = [f.type for f in input_findings]
-
-    # Risk score assigned by DLP
     input_risk = input_decision.risk_score
 
-    # If input violates policy, block request immediately
+    prompt_for_model = input_redacted_text  # model never sees raw secrets if detected
+
+    # BLOCK on input
     if input_decision.decision == PolicyDecision.BLOCK:
-        latency_ms = int((time.perf_counter() - t0) * 1000)
+        latency_ms = int((time.time() - start) * 1000)
 
-        requested_models = ",".join(payload.models) if payload.models else payload.model
+        masked_log = mask_sensitive(
+            str(
+                {
+                    "event": "ai_query_blocked_input",
+                    "request_id": request_id,
+                    "model": model,
+                    "risk_score": input_risk,
+                    "rules_triggered": input_rules,
+                    "client_ip": client_ip,
+                }
+            )
+        )
 
-        await _log_ai(
-            request_id=request_id,
-            user_payload=user_payload,
-            model_requested=requested_models,
-            model_used="N/A",
-            latency_ms=latency_ms,
-            policy=policy,
+        await log_request(
+            endpoint="/ai/query",
+            method="POST",
             status_code=200,
+            message=masked_log,
+            event_type="ai_query_blocked",
+            severity="high",
             risk_score=input_risk,
-            rules_triggered=input_rules,
-            blocked=True,
-            redacted=False,
+            source="ai_route",
+            policy_decision="block",
         )
 
         return AIQueryResponse(
             request_id=request_id,
-            policy=policy,
-            answer="Request blocked by DLP policy.",
-            model_used="blocked",
-            results=None,
+            model=model,
+            output={
+                "text": "Request blocked by DLP policy.",
+                "redacted": False,
+                "blocked": True,
+            },
+            security={
+                "policy_decision": "block",
+                "risk_score": input_risk,
+                "rules_triggered": input_rules,
+                "redactions": [],
+                "blocked_reason": "Sensitive data detected in input.",
+                "phase": "input",
+            },
+            meta={"latency_ms": latency_ms},
         )
+
+    # ------------------------------------------------------------------
+    # 2) MODEL CALL
+    # ------------------------------------------------------------------
+    client = OllamaClient()
 
     try:
+        raw_output = await client.generate(model, prompt_for_model)
+    except Exception as e:
+        latency_ms = int((time.time() - start) * 1000)
 
-        # ===============================
-        # MULTI-MODEL EXECUTION PATH
-        # ===============================
-
-        if payload.models:
-
-            # Send prompt to multiple models
-            raw_results = await route_many(
-                input_redacted_text,
-                payload.models,
-                user_payload,
+        # log failure too (masked)
+        masked_log = mask_sensitive(
+            str(
+                {
+                    "event": "ai_query_model_error",
+                    "request_id": request_id,
+                    "model": model,
+                    "error": repr(e),
+                    "client_ip": client_ip,
+                }
             )
-
-            results: List[ModelResult] = []
-            blocked_any = False
-            redacted_any = False
-
-            all_rules = list(input_rules)
-            combined_risk = input_risk
-
-            # Process each model response independently
-            for item in raw_results:
-
-                # Scan model output for sensitive data
-                output_redacted_text, output_findings = dlp_engine.scan_text(
-                    item["answer"]
-                )
-
-                output_decision = dlp_engine.decide(output_findings)
-
-                output_rules = [f.type for f in output_findings]
-
-                all_rules.extend(output_rules)
-
-                # Track highest risk score
-                combined_risk = max(combined_risk, output_decision.risk_score)
-
-                final_answer = item["answer"]
-
-                # Output policy enforcement
-                if output_decision.decision == PolicyDecision.BLOCK:
-                    final_answer = "Response blocked by DLP policy."
-                    blocked_any = True
-
-                elif output_decision.decision == PolicyDecision.REDACT:
-                    final_answer, _ = dlp_engine.redact_text(
-                        output_redacted_text,
-                        output_findings,
-                    )
-                    redacted_any = True
-
-                results.append(
-                    ModelResult(
-                        answer=final_answer,
-                        model_used=item["model_used"],
-                    )
-                )
-
-            latency_ms = int((time.perf_counter() - t0) * 1000)
-
-            # Log the full multi-model request
-            await _log_ai(
-                request_id=request_id,
-                user_payload=user_payload,
-                model_requested=",".join(payload.models),
-                model_used="multi",
-                latency_ms=latency_ms,
-                policy=policy,
-                status_code=200,
-                risk_score=combined_risk,
-                rules_triggered=sorted(set(all_rules)),
-                blocked=blocked_any,
-                redacted=redacted_any,
-            )
-
-            return AIQueryResponse(
-                request_id=request_id,
-                policy=policy,
-                answer=results[0].answer if results else "",
-                model_used=results[0].model_used if results else "",
-                results=results,
-            )
-
-        # ===============================
-        # SINGLE MODEL EXECUTION PATH
-        # ===============================
-
-        result = await route_one(
-            input_redacted_text,
-            payload.model,
-            user_payload,
+        )
+        await log_request(
+            endpoint="/ai/query",
+            method="POST",
+            status_code=502,
+            message=masked_log,
+            event_type="ai_query_model_error",
+            severity="high",
+            source="ai_route",
         )
 
-        # Scan model output for sensitive data
-        output_redacted_text, output_findings = dlp_engine.scan_text(result["answer"])
+        raise HTTPException(status_code=502, detail=repr(e))
 
-        output_decision = dlp_engine.decide(output_findings)
+    # ------------------------------------------------------------------
+    # 3) OUTPUT DLP (Output Filter)
+    # ------------------------------------------------------------------
+    output_redacted_text, output_findings = dlp_engine.scan_text(raw_output)
+    output_decision = dlp_engine.decide(output_findings)
 
-        output_rules = [f.type for f in output_findings]
+    output_rules = [f.type for f in output_findings]
+    output_risk = output_decision.risk_score
 
-        combined_risk = max(input_risk, output_decision.risk_score)
+    combined_risk = max(input_risk, output_risk)
+    all_rules: List[str] = sorted(set(input_rules + output_rules))
 
-        all_rules = sorted(set(input_rules + output_rules))
+    redactions_meta: List[dict] = []
+    final_text = raw_output
+    redacted_flag = False
+    blocked_flag = False
+    blocked_reason = None
 
-        final_answer = result["answer"]
-
-        blocked = False
-        redacted = False
-
-        # Apply output policy enforcement
-        if output_decision.decision == PolicyDecision.BLOCK:
-            final_answer = "Response blocked by DLP policy."
-            blocked = True
-
-        elif output_decision.decision == PolicyDecision.REDACT:
-            final_answer, _ = dlp_engine.redact_text(
-                output_redacted_text,
-                output_findings,
-            )
-            redacted = True
-
-        latency_ms = int((time.perf_counter() - t0) * 1000)
-
-        # Log request metadata
-        await _log_ai(
-            request_id=request_id,
-            user_payload=user_payload,
-            model_requested=payload.model,
-            model_used=result["model_used"],
-            latency_ms=latency_ms,
-            policy=policy,
-            status_code=200,
-            risk_score=combined_risk,
-            rules_triggered=all_rules,
-            blocked=blocked,
-            redacted=redacted,
+    if output_decision.decision == PolicyDecision.BLOCK:
+        blocked_flag = True
+        final_text = "Response blocked by DLP policy."
+        blocked_reason = "Sensitive data detected in model output."
+    elif output_decision.decision == PolicyDecision.REDACT:
+        final_text, redactions_meta = dlp_engine.redact_text(
+            output_redacted_text, output_findings
         )
+        redacted_flag = True
 
-        return AIQueryResponse(
-            request_id=request_id,
-            policy=policy,
-            answer=final_answer,
-            model_used=result["model_used"],
-            results=None,
-        )
+    latency_ms = int((time.time() - start) * 1000)
 
-    # ------------------------------
-    # ROUTER VALIDATION ERRORS
-    # ------------------------------
+    # ------------------------------------------------------------------
+    # 4) LOG MASKED EVENT
+    # ------------------------------------------------------------------
+    log_payload = {
+        "event": "ai_query",
+        "request_id": request_id,
+        "model": model,
+        "input_preview": req.prompt[:200],
+        "output_preview": raw_output[:200],
+        "policy_decision": output_decision.decision.value,
+        "risk_score": combined_risk,
+        "rules_triggered": all_rules,
+        "redactions": redactions_meta,
+        "redacted": redacted_flag,
+        "blocked": blocked_flag,
+        "latency_ms": latency_ms,
+        "client_ip": client_ip,
+    }
 
-    except ValueError as exc:
-
-        latency_ms = int((time.perf_counter() - t0) * 1000)
-
-        await _log_ai(
-            request_id=request_id,
-            user_payload=user_payload,
-            model_requested="error",
-            model_used="N/A",
-            latency_ms=latency_ms,
-            policy=policy,
-            status_code=400,
-            risk_score=input_risk,
-            rules_triggered=input_rules,
-            blocked=False,
-            redacted=False,
-        )
-
-        raise HTTPException(status_code=400, detail=str(exc))
-
-    # ------------------------------
-    # INTERNAL SERVER ERRORS
-    # ------------------------------
-
-    except Exception as exc:
-
-        latency_ms = int((time.perf_counter() - t0) * 1000)
-
-        secure_log(f"AI route exception: {repr(exc)}")
-
-        await _log_ai(
-            request_id=request_id,
-            user_payload=user_payload,
-            model_requested="error",
-            model_used="N/A",
-            latency_ms=latency_ms,
-            policy=policy,
-            status_code=500,
-            risk_score=input_risk,
-            rules_triggered=input_rules,
-            blocked=False,
-            redacted=False,
-        )
-
-        raise HTTPException(status_code=500, detail="Internal server error")
-
-
-# ------------------------------------------
-# Internal logging helper
-# ------------------------------------------
-# Centralized logging function used by the AI route
-# Stores structured logs and sends sanitized logs
-# to secure logging output.
-async def _log_ai(
-    request_id,
-    user_payload,
-    model_requested,
-    model_used,
-    latency_ms,
-    policy,
-    status_code: int,
-    risk_score=None,
-    rules_triggered=None,
-    blocked: bool = False,
-    redacted: bool = False,
-):
-
-    user_id = user_payload.get("user_id") or user_payload.get("id") or "unknown"
-
-    rules_triggered = rules_triggered or []
-
-    secure_log(
-        f"AI_QUERY request_id={request_id} user_id={user_id} "
-        f"model_requested={model_requested} model_used={model_used} "
-        f"latency_ms={latency_ms} status_code={status_code} "
-        f"risk_score={risk_score} rules_triggered={rules_triggered} "
-        f"blocked={blocked} redacted={redacted} "
-        f"policy={policy.model_dump()}"
+    _sev = (
+        "high" if combined_risk >= 0.7 else "medium" if combined_risk >= 0.3 else "low"
     )
 
+    masked_log = mask_sensitive(str(log_payload))
     await log_request(
         endpoint="/ai/query",
         method="POST",
-        status_code=status_code,
-        message=(
-            f"request_id={request_id} user_id={user_id} "
-            f"model_requested={model_requested} model_used={model_used} "
-            f"latency_ms={latency_ms} risk_score={risk_score} "
-            f"rules_triggered={rules_triggered} blocked={blocked} "
-            f"redacted={redacted} policy={policy.model_dump()}"
-        ),
+        status_code=200,
+        message=masked_log,
+        event_type="ai_query",
+        severity=_sev,
+        risk_score=combined_risk,
+        source="ai_route",
+        policy_decision=output_decision.decision.value,
+    )
+
+    # ------------------------------------------------------------------
+    # 5) RESPONSE
+    # ------------------------------------------------------------------
+    return AIQueryResponse(
+        request_id=request_id,
+        model=model,
+        output={"text": final_text, "redacted": redacted_flag, "blocked": blocked_flag},
+        security={
+            "policy_decision": output_decision.decision.value,
+            "risk_score": combined_risk,
+            "rules_triggered": all_rules,
+            "redactions": redactions_meta,
+            "blocked_reason": blocked_reason,
+            "phase": "output",
+        },
+        meta={"latency_ms": latency_ms},
     )

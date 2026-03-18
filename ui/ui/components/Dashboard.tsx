@@ -113,14 +113,19 @@ const Dashboard: React.FC = () => {
   const [alerts, setAlerts] = useState<AlertItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState(false);
+  const [role, setRole] = useState<string>('');
 
   useEffect(() => {
     if (!isAuthenticated()) {
       router.replace('/login');
+      return;
     }
+    setRole(getRole() ?? 'user');
   }, [router]);
 
   useEffect(() => {
+    // Re-fetch every time the user navigates back to the Dashboard section
+    if (section !== 'Dashboard') return;
     let cancelled = false;
 
     async function fetchDashboard() {
@@ -178,7 +183,7 @@ const Dashboard: React.FC = () => {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [section]);
 
   const compliancePercent = compliance
     ? Math.round(compliance.complianceScore * 100)
@@ -207,14 +212,14 @@ const Dashboard: React.FC = () => {
           {/* TOP SUMMARY CARDS */}
           <section className="grid gap-4 grid-cols-1 md:grid-cols-2 xl:grid-cols-4 mb-6">
             <SummaryCard
-              title="Total Prompts (24h)"
+              title="Total Requests (24h)"
               value={loading ? '—' : (summary?.totalPrompts24h ?? 0)}
-              description="Across all apps & models"
+              description="Secure Chat prompts + document uploads"
             />
             <SummaryCard
-              title="Blocked Prompts"
+              title="DLP Blocked (24h)"
               value={loading ? '—' : (summary?.blockedPrompts ?? 0)}
-              description="Stopped by policies & rate limits"
+              description="Requests blocked by DLP policy"
               valueClassName="text-red-400"
             />
             <SummaryCard
@@ -388,8 +393,7 @@ const Dashboard: React.FC = () => {
     }
   };
 
-  const role = getRole() ?? 'user';
-  const initials = role.slice(0, 2).toUpperCase();
+  const initials = role ? role.slice(0, 2).toUpperCase() : '';
 
   return (
     <div className="min-h-screen flex bg-slate-950">
@@ -406,15 +410,19 @@ const Dashboard: React.FC = () => {
         </div>
 
         <nav className="flex-1 px-2 py-4 space-y-0.5 text-sm">
-          {ALL_SECTIONS.map((name) => (
-            <SidebarItem
-              key={name}
-              label={name}
-              icon={SECTION_ICONS[name]}
-              active={section === name}
-              onClick={() => setSection(name)}
-            />
-          ))}
+          {ALL_SECTIONS.map((name) => {
+            const restricted = role === 'auditor' && (name === 'Secure Chat' || name === 'Document Sanitizer');
+            return (
+              <SidebarItem
+                key={name}
+                label={name}
+                icon={SECTION_ICONS[name]}
+                active={section === name}
+                disabled={restricted}
+                onClick={() => { if (!restricted) setSection(name); }}
+              />
+            );
+          })}
         </nav>
 
         {/* Role badge + sign out */}
@@ -474,26 +482,33 @@ function SidebarItem({
   label,
   icon: Icon,
   active = false,
+  disabled = false,
   onClick,
 }: {
   label: string;
   icon: SectionIconType;
   active?: boolean;
+  disabled?: boolean;
   onClick?: () => void;
 }) {
   return (
     <button
       type="button"
       onClick={onClick}
+      disabled={disabled}
+      title={disabled ? 'Not available for your role' : undefined}
       className={
-        'w-full text-left flex items-center gap-2.5 px-3 py-2 text-xs font-medium cursor-pointer transition rounded-lg ' +
-        (active
-          ? 'border-l-2 border-cyan-400 bg-cyan-400/10 text-cyan-400 rounded-l-none pl-2.5'
-          : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200')
+        'w-full text-left flex items-center gap-2.5 px-3 py-2 text-xs font-medium transition rounded-lg ' +
+        (disabled
+          ? 'cursor-not-allowed opacity-35 text-slate-500'
+          : active
+          ? 'cursor-pointer border-l-2 border-cyan-400 bg-cyan-400/10 text-cyan-400 rounded-l-none pl-2.5'
+          : 'cursor-pointer text-slate-400 hover:bg-slate-800 hover:text-slate-200')
       }
     >
       <Icon className="w-4 h-4 shrink-0" />
       <span>{label}</span>
+      {disabled && <span className="ml-auto text-[9px] text-slate-600 font-semibold">NO ACCESS</span>}
     </button>
   );
 }

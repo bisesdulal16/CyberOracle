@@ -13,11 +13,13 @@ import io
 import os
 import re
 
-from fastapi import APIRouter, File, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from pydantic import BaseModel
 from typing import List
 
+from app.auth.rbac import require_roles
 from app.middleware.dlp_regex import REGEX_PATTERNS, scan_text
+from app.utils.logger import log_request
 
 router = APIRouter(prefix="/api/documents", tags=["Documents"])
 
@@ -93,7 +95,10 @@ def _count_findings(text: str) -> List[RedactionFinding]:
 
 
 @router.post("/sanitize", response_model=SanitizeResponse)
-async def sanitize_document(file: UploadFile = File(...)):
+async def sanitize_document(
+    file: UploadFile = File(...),
+    _user: dict = Depends(require_roles("admin", "developer")),
+):
     """
     Upload a PDF or DOCX document for DLP scanning and redaction.
 
@@ -152,6 +157,28 @@ async def sanitize_document(file: UploadFile = File(...)):
     findings = _count_findings(raw_text)
     redacted_text, _ = scan_text(raw_text)
     total_redactions = sum(f.count for f in findings)
+
+    # --- Audit log ---
+    # risk_score: cap at 1.0, scaled by redaction count (5+ = max risk)
+    risk_score = min(1.0, total_redactions / 5.0) if total_redactions > 0 else 0.0
+    severity = "high" if risk_score >= 0.7 else "medium" if risk_score >= 0.3 else "low"
+    policy_decision = "redact" if total_redactions > 0 else "allow"
+    finding_summary = ", ".join(f"{f.type}×{f.count}" for f in findings) or "none"
+
+    await log_request(
+        endpoint="/api/documents/sanitize",
+        method="POST",
+        status_code=200,
+        message=(
+            f"Document sanitized: {filename} ({file_type}), "
+            f"redactions={total_redactions}, findings=[{finding_summary}]"
+        ),
+        event_type="document_sanitize",
+        severity=severity,
+        risk_score=risk_score,
+        source="documents_route",
+        policy_decision=policy_decision,
+    )
 
     return SanitizeResponse(
         filename=filename,

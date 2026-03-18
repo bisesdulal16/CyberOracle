@@ -10,9 +10,10 @@ returns counts + breakdowns suitable for display and CSV export.
 from datetime import datetime, timedelta
 from typing import Optional
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy import select, func, and_
 
+from app.auth.rbac import require_roles
 from app.db.db import AsyncSessionLocal
 from app.models import LogEntry
 
@@ -29,6 +30,7 @@ async def get_reports_summary(
         default=None,
         description="ISO date string (YYYY-MM-DD). Defaults to today (end of day).",
     ),
+    _user: dict = Depends(require_roles("admin", "developer", "auditor")),
 ):
     """
     Aggregated log statistics for the requested date range.

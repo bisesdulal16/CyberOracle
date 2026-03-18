@@ -1,56 +1,68 @@
 import pytest
+import pytest_asyncio
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
+from sqlalchemy.orm import sessionmaker
+from sqlalchemy.pool import NullPool
 
-from app.db.db import AsyncSessionLocal, Base, DATABASE_URL
+from app.db.db import Base, DATABASE_URL
 from app.models import LogEntry
 
 
-@pytest.fixture(scope="module", autouse=True)
-async def setup_db():
+@pytest_asyncio.fixture(scope="module")
+async def engine():
     """
-    Set up the test database schema before running tests.
-    Creates all tables before tests and drops them afterward.
-    """
-    engine = create_async_engine(DATABASE_URL, echo=False)
+    Create an isolated async engine for this test module.
 
-    async with engine.begin() as conn:
+    NullPool avoids connection reuse issues like:
+    'cannot perform operation: another operation is in progress'
+    """
+    test_engine = create_async_engine(
+        DATABASE_URL,
+        echo=False,
+        poolclass=NullPool,
+    )
+
+    async with test_engine.begin() as conn:
         await conn.run_sync(Base.metadata.drop_all)
         await conn.run_sync(Base.metadata.create_all)
 
-    yield
+    yield test_engine
 
-    async with engine.begin() as conn:
+    async with test_engine.begin() as conn:
         await conn.run_sync(Base.metadata.drop_all)
 
-    await engine.dispose()
+    await test_engine.dispose()
 
 
-@pytest.fixture
-async def session():
+@pytest_asyncio.fixture
+async def session(engine):
     """
-    Provides a fresh AsyncSession for each test.
+    Provide a fresh AsyncSession for each test, bound to the isolated engine.
     """
-    async with AsyncSessionLocal() as session:
-        yield session
+    TestingSessionLocal = sessionmaker(
+        bind=engine,
+        class_=AsyncSession,
+        expire_on_commit=False,
+    )
+
+    async with TestingSessionLocal() as db_session:
+        yield db_session
+
+        # Safe teardown: only rollback if the session is still active.
         try:
-            await session.rollback()
-        except RuntimeError:
-            pass
-        try:
-            await session.close()
-        except RuntimeError:
+            if db_session.in_transaction():
+                await db_session.rollback()
+        except (RuntimeError, Exception):
             pass
 
 
 @pytest.mark.asyncio
-async def test_database_connection():
+async def test_database_connection(engine):
     """
     Verify that the database engine can connect successfully.
     """
-    engine = create_async_engine(DATABASE_URL, echo=False)
     async with engine.begin() as conn:
         assert conn is not None
-    await engine.dispose()
 
 
 @pytest.mark.asyncio

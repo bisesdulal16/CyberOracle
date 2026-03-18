@@ -39,6 +39,7 @@ async def list_logs(
     severity: Optional[str] = Query(default=None),
     event_type: Optional[str] = Query(default=None),
     policy_decision: Optional[str] = Query(default=None),
+    _user: dict = Depends(require_roles("admin", "developer", "auditor")),
 ):
     """
     Paginated log retrieval for the Audit Log panel.

@@ -7,11 +7,13 @@ the suite runs without the optional extraction libraries installed.
 """
 
 import pytest
+from unittest.mock import AsyncMock, patch
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 import app.routes.documents as doc_module
 from app.routes.documents import _count_findings
+from app.auth.jwt_utils import create_access_token
 
 
 # ---------------------------------------------------------------------------
@@ -21,10 +23,21 @@ from app.routes.documents import _count_findings
 
 @pytest.fixture
 def client():
-    """Minimal FastAPI app mounting only the documents router."""
+    """Minimal FastAPI app mounting only the documents router.
+
+    log_request is patched out so the suite needs no DB connection —
+    consistent with the module docstring: 'no DB or Presidio is needed'.
+    """
     application = FastAPI()
     application.include_router(doc_module.router)
-    return TestClient(application)
+    with patch.object(doc_module, "log_request", new=AsyncMock()):
+        yield TestClient(application)
+
+
+@pytest.fixture
+def auth_headers():
+    token = create_access_token({"sub": "test", "role": "admin"})
+    return {"Authorization": f"Bearer {token}"}
 
 
 # ---------------------------------------------------------------------------
@@ -62,17 +75,18 @@ def test_count_findings_multiple_types():
 # ---------------------------------------------------------------------------
 
 
-def test_rejects_unsupported_extension(client):
+def test_rejects_unsupported_extension(client, auth_headers):
     """Plain text files must be rejected with 400."""
     response = client.post(
         "/api/documents/sanitize",
         files={"file": ("report.txt", b"Some text content", "text/plain")},
+        headers=auth_headers,
     )
     assert response.status_code == 400
     assert "Unsupported file type" in response.json()["detail"]
 
 
-def test_rejects_oversized_file(client):
+def test_rejects_oversized_file(client, auth_headers):
     """Files over 10 MB must be rejected with 413."""
     oversized = b"x" * (11 * 1024 * 1024)  # 11 MB
     response = client.post(
@@ -84,11 +98,12 @@ def test_rejects_oversized_file(client):
                 "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
             )
         },
+        headers=auth_headers,
     )
     assert response.status_code == 413
 
 
-def test_sanitizes_docx_with_pii(client, monkeypatch):
+def test_sanitizes_docx_with_pii(client, auth_headers, monkeypatch):
     """
     DOCX with PII should return redacted text and non-zero findings.
     The DOCX extraction is monkeypatched to return a known string so
@@ -111,6 +126,7 @@ def test_sanitizes_docx_with_pii(client, monkeypatch):
                 "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
             )
         },
+        headers=auth_headers,
     )
 
     assert response.status_code == 200
@@ -123,7 +139,7 @@ def test_sanitizes_docx_with_pii(client, monkeypatch):
     assert "123-45-6789" not in data["redacted_text"]
 
 
-def test_empty_document_returns_422(client, monkeypatch):
+def test_empty_document_returns_422(client, auth_headers, monkeypatch):
     """A DOCX with no extractable text should return 422."""
     monkeypatch.setattr(doc_module, "_extract_text_docx", lambda _content: "   ")
 
@@ -136,12 +152,13 @@ def test_empty_document_returns_422(client, monkeypatch):
                 "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
             )
         },
+        headers=auth_headers,
     )
 
     assert response.status_code == 422
 
 
-def test_clean_document_returns_zero_redactions(client, monkeypatch):
+def test_clean_document_returns_zero_redactions(client, auth_headers, monkeypatch):
     """A document with no PII should return total_redactions = 0."""
     monkeypatch.setattr(
         doc_module,
@@ -158,9 +175,94 @@ def test_clean_document_returns_zero_redactions(client, monkeypatch):
                 "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
             )
         },
+        headers=auth_headers,
     )
 
     assert response.status_code == 200
     data = response.json()
     assert data["total_redactions"] == 0
     assert data["findings"] == []
+
+
+def test_extract_text_pdf_collects_page_text(monkeypatch):
+    class FakePage:
+        def __init__(self, text):
+            self._text = text
+
+        def extract_text(self):
+            return self._text
+
+    class FakePDF:
+        def __init__(self):
+            self.pages = [FakePage("Page one"), FakePage(None), FakePage("Page three")]
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+    import sys
+    import types
+
+    fake_pdfplumber = types.SimpleNamespace(open=lambda _stream: FakePDF())
+    monkeypatch.setitem(sys.modules, "pdfplumber", fake_pdfplumber)
+
+    result = doc_module._extract_text_pdf(b"fake-pdf-bytes")
+    assert result == "Page one\n\nPage three"
+
+
+def test_extract_text_docx_collects_non_empty_paragraphs(monkeypatch):
+    class FakeParagraph:
+        def __init__(self, text):
+            self.text = text
+
+    class FakeDocument:
+        def __init__(self, _stream):
+            self.paragraphs = [
+                FakeParagraph("First paragraph"),
+                FakeParagraph("   "),
+                FakeParagraph("Second paragraph"),
+            ]
+
+    import sys
+    import types
+
+    fake_docx_module = types.SimpleNamespace(Document=FakeDocument)
+    monkeypatch.setitem(sys.modules, "docx", fake_docx_module)
+
+    result = doc_module._extract_text_docx(b"fake-docx-bytes")
+    assert result == "First paragraph\nSecond paragraph"
+
+
+def test_sanitizes_pdf_with_pii(client, auth_headers, monkeypatch):
+    pii_text = "PDF text with SSN 123-45-6789 and email pdf@test.com"
+    monkeypatch.setattr(doc_module, "_extract_text_pdf", lambda _content: pii_text)
+
+    response = client.post(
+        "/api/documents/sanitize",
+        files={"file": ("record.pdf", b"fake-pdf-bytes", "application/pdf")},
+        headers=auth_headers,
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["file_type"] == "PDF"
+    assert data["total_redactions"] > 0
+    assert "123-45-6789" not in data["redacted_text"]
+
+
+def test_pdf_extraction_failure_returns_422(client, auth_headers, monkeypatch):
+    def _boom(_content):
+        raise ValueError("parse failed")
+
+    monkeypatch.setattr(doc_module, "_extract_text_pdf", _boom)
+
+    response = client.post(
+        "/api/documents/sanitize",
+        files={"file": ("broken.pdf", b"fake-pdf-bytes", "application/pdf")},
+        headers=auth_headers,
+    )
+
+    assert response.status_code == 422
+    assert "Could not extract text from the file" in response.json()["detail"]
