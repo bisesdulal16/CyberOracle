@@ -1,0 +1,23 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cyberoracle-api
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: cyberoracle-api
+  template:
+    metadata:
+      labels:
+        app: cyberoracle-api
+    spec:
+      containers:
+        - name: cyberoracle-api
+          image: cyberoracle-api:latest
+          imagePullPolicy: Never
+          ports:
+            - containerPort: 8000
+          env:
+            - name: DATABASE_URL
+              value: "postgresql+asyncpg://postgres:postgres@host.minikube.internal:5432/cyberoracle"
