@@ -1,10 +1,9 @@
-# app/routes/dlp.py
-
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter
 from pydantic import BaseModel
 
 from app.middleware.dlp_presidio import presidio_scan
-from app.auth.rbac import require_roles
+from app.services.compliance_engine import evaluate_compliance
+from app.utils.logger import log_request
 
 router = APIRouter()
 
@@ -16,18 +15,30 @@ class ScanRequest(BaseModel):
 class ScanResponse(BaseModel):
     redacted: str
     entities: list[str]
+    frameworks: list[str]
+    decision: str
+    severity: str
 
 
 @router.post("/scan", response_model=ScanResponse)
-async def scan_text(
-    payload: ScanRequest,
-    _user: dict = Depends(require_roles("admin", "developer")),
-):
-    """
-    Scan arbitrary text for sensitive data using the Presidio DLP engine.
-    Returns the redacted text and a list of detected entity types.
-
-    Used by: Document Sanitizer, manual testing, admin tooling.
-    """
+async def scan_text(payload: ScanRequest):
     redacted, entities = presidio_scan(payload.text)
-    return ScanResponse(redacted=redacted, entities=entities)
+    compliance = evaluate_compliance(payload.text, entities)
+    
+    await log_request(
+        endpoint="/api/scan",
+        method="POST",
+        status_code=200,
+        message=redacted, # We save the REDACTED version
+        frameworks=compliance["frameworks"],
+        decision=compliance["decision"],
+        severity=compliance["severity"]
+    )
+
+    return ScanResponse(
+        redacted=redacted,
+        entities=entities,
+        frameworks=compliance["frameworks"],
+        decision=compliance["decision"],
+        severity=compliance["severity"],
+    )

@@ -27,6 +27,10 @@ class LogEntry(Base):
 
     # Structured event classification (e.g. "ai_query", "ai_query_blocked", "dlp_alert")
     event_type = Column(String(50), nullable=True, index=True)
+    
+    frameworks = Column(String, nullable=True) # or Column(ARRAY(String))
+    
+    decision = Column(String, nullable=True)
 
     # Coarse severity level derived from risk_score: "low", "medium", "high"
     severity = Column(String(20), nullable=True, index=True)
