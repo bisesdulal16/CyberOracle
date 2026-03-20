@@ -10,15 +10,16 @@ This is used by:
 - /api/scan (if you add one later)
 - any other internal services that need DLP.
 """
-
 from __future__ import annotations
 
+import re
 from collections import Counter
 from dataclasses import dataclass
 from enum import Enum
 from typing import List, Dict, Any, Tuple
 
 from app.middleware.dlp_presidio import analyzer, anonymizer, TARGET_ENTITIES
+from app.policies.compliance_policies import COMPLIANCE_POLICIES
 
 
 class PolicyDecision(str, Enum):
@@ -147,3 +148,49 @@ def redact_text(
     """
     redactions = [{"type": f.type, "count": f.count} for f in findings if f.count > 0]
     return redacted_text, redactions
+
+def detect_compliance_entities(text: str):
+    findings = []
+
+    # HIPAA patterns
+    if re.search(r"\b\d{3}-\d{2}-\d{4}\b", text):
+        findings.append({"type": "SSN", "framework": "HIPAA"})
+
+    if any(word in text.lower() for word in ["patient", "diagnosis", "treatment", "medical"]):
+        findings.append({"type": "MEDICAL_INFO", "framework": "HIPAA"})
+
+    # FERPA patterns
+    if re.search(r"\b[\w.-]+@unt\.edu\b", text):
+        findings.append({"type": "STUDENT_EMAIL", "framework": "FERPA"})
+
+    if any(word in text.lower() for word in ["student id", "gpa", "transcript", "grade"]):
+        findings.append({"type": "ACADEMIC_RECORD", "framework": "FERPA"})
+
+    return findings
+
+def evaluate_compliance(findings):
+    frameworks = list(set(f["framework"] for f in findings))
+
+    if not frameworks:
+        return {
+            "decision": "allow",
+            "severity": "low",
+            "frameworks": []
+        }
+
+    # prioritize highest severity
+    for fw in frameworks:
+        policy = COMPLIANCE_POLICIES[fw]
+
+        if policy["severity"] == "high":
+            return {
+                "decision": policy["action"],
+                "severity": "high",
+                "frameworks": frameworks
+            }
+
+    return {
+        "decision": "redact",
+        "severity": "medium",
+        "frameworks": frameworks
+    }
