@@ -52,6 +52,10 @@ class DLPFilterMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
         detected_entities: Set[str] = set()
 
+        # Skip redaction for auth endpoints (you can expand this list)
+        if request.url.path.startswith("/auth"):
+            return await call_next(request)
+
         # Target only data-carrying methods
         if request.method in {"POST", "PUT", "PATCH"}:
             try:

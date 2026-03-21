@@ -113,6 +113,11 @@ black==24.10.0              # Automatic code formatter
 # -----------------------------------------------------------------------------
 pre-commit==4.3.0           # Git hook manager for repo security and automation
 
+passlib
+argon2-cffi
+python-jose[cryptography]
+email-validator
+prometheus-fastapi-instrumentator
 ###############################################################################
 # End of requirements.txt
 # -----------------------------------------------------------------------------

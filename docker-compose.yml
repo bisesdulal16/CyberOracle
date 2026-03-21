@@ -21,6 +21,7 @@ services:
       context: .
       dockerfile: Dockerfile
     container_name: cyberoracle-api
+    restart: unless-stopped
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
     volumes:
       - .:/app
@@ -28,6 +29,7 @@ services:
       - "8000:8000"
     environment:
       - DATABASE_URL=postgresql+asyncpg://postgres:postgres@db:5432/cyberoracle
+      - JWT_SECRET=super-long-random-secret-change-me
     depends_on:
       - db
 

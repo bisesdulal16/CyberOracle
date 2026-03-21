@@ -7,12 +7,19 @@ from app.middleware.rate_limiter import RateLimitMiddleware
 from app.utils.exception_handler import secure_exception_handler
 from app.routes.metrics import router as metrics_router
 
+from app.models import User
+from app.routes.auth import router as auth_router
+from prometheus_fastapi_instrumentator import Instrumentator
+
 # Initialize FastAPI application with metadata
 app = FastAPI(
     title="CyberOracle Gateway",
     version="1.0.0",
     description="Secure AI gateway ensuring data protection and compliance observability.",
 )
+
+# Prometheus metrics endpoint
+Instrumentator().instrument(app).expose(app, endpoint="/metrics")
 
 # Register custom DLP middleware for sensitive data filtering
 app.add_middleware(DLPFilterMiddleware)
@@ -47,3 +54,5 @@ app.include_router(dlp_router, prefix="/api", tags=["DLP"])
 
 # include metrics router for dashboard APIs
 app.include_router(metrics_router)  # routes already have prefix="/api"
+
+app.include_router(auth_router, prefix="/auth", tags=["Auth"])
