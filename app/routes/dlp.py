@@ -24,15 +24,15 @@ class ScanResponse(BaseModel):
 async def scan_text(payload: ScanRequest):
     redacted, entities = presidio_scan(payload.text)
     compliance = evaluate_compliance(payload.text, entities)
-
+    
     await log_request(
         endpoint="/api/scan",
         method="POST",
         status_code=200,
-        message=redacted,  # We save the REDACTED version
+        message=redacted, # We save the REDACTED version
         frameworks=compliance["frameworks"],
         decision=compliance["decision"],
-        severity=compliance["severity"],
+        severity=compliance["severity"]
     )
 
     return ScanResponse(

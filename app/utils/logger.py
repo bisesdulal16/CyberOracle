@@ -124,7 +124,7 @@ async def log_request(
     """
     # Encrypt the message field before DB storage when encryption is active
     stored_message = encrypt_value(message) if message else message
-
+    
     frameworks_str = ", ".join(frameworks) if frameworks else None
 
     async with AsyncSessionLocal() as session:
@@ -134,7 +134,7 @@ async def log_request(
             status_code=status_code,
             message=stored_message,
             event_type=event_type,
-            frameworks=frameworks_str,
+            frameworks=frameworks_str, 
             decision=decision,
             severity=severity,
             risk_score=risk_score,
