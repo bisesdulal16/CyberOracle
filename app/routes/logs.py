@@ -20,7 +20,6 @@ from app.schemas.log_schema import LogIngest
 from app.utils.db_encryption import decrypt_value
 from app.utils.logger import log_request, mask_sensitive, secure_log
 
-# UPDATED: combined RBAC imports and added permission-based RBAC
 from app.auth.rbac import require_roles, require_permission
 
 router = APIRouter()
@@ -33,14 +32,14 @@ async def get_logs(_: dict = Depends(require_permission("view_all_logs"))):
 
 @router.get("/list")
 async def list_logs(
-    # ADDED: RBAC enforcement so only roles with view_all_logs permission can access logs
+    # require_permission("view_all_logs") covers admin/developer/auditor —
+    # no need for a second require_roles dependency on the same parameter name.
     _user: dict = Depends(require_permission("view_all_logs")),
     limit: int = Query(default=50, ge=1, le=200),
     offset: int = Query(default=0, ge=0),
     severity: Optional[str] = Query(default=None),
     event_type: Optional[str] = Query(default=None),
     policy_decision: Optional[str] = Query(default=None),
-    _user: dict = Depends(require_roles("admin", "developer", "auditor")),
 ):
     """
     Paginated log retrieval for the Audit Log panel.
@@ -121,16 +120,10 @@ async def ingest_logs(
     --------------------------------
     input → mask_sensitive → log_request → DB insert
     """
-    # Convert incoming model to dict
     data = payload.model_dump()
-
-    # Mask before database storage
     masked_msg = mask_sensitive(str(data))
-
-    # Log to stdout (masked)
     secure_log(f"Ingested log: {masked_msg}")
 
-    # Insert into database
     await log_request(
         endpoint="/logs/ingest",
         method="POST",
