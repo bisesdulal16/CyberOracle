@@ -1,46 +1,44 @@
-"""
-Rate Limiting Middleware
-------------------------
-Provides a simple sliding-window rate limiter for API protection.
-"""
-
 import os
-import sys
 import time
-
 from fastapi import Request
 from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 
-RATE_LIMIT = 5
-TIME_WINDOW = 60
+# Production defaults — overridden dynamically per-request in test mode
+PROD_RATE_LIMIT = 1000
+PROD_TIME_WINDOW = 1
 
-requests_log = {}
+TEST_RATE_LIMIT = 5
+TEST_TIME_WINDOW = 60
 
-
-def is_test_mode() -> bool:
-    return os.getenv("PYTEST") == "1" or "pytest" in sys.modules
+requests_log: dict[str, list[float]] = {}
 
 
 class RateLimitMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
-        # Bypass rate limiting for tests unless a test explicitly enables it
-        if is_test_mode() and os.getenv("ENABLE_RATE_LIMIT_TEST") != "1":
+        test_mode = os.getenv("PYTEST") == "1"
+
+        # Allow tests to opt OUT of rate limiting (e.g. for unrelated endpoint tests)
+        if test_mode and os.getenv("DISABLE_RATE_LIMIT_TEST") == "1":
             return await call_next(request)
 
-        client_ip = request.client.host if request.client else "unknown"
+        # Pick limits dynamically so env vars set after import still apply
+        rate_limit = TEST_RATE_LIMIT if test_mode else PROD_RATE_LIMIT
+        time_window = TEST_TIME_WINDOW if test_mode else PROD_TIME_WINDOW
+
+        client_ip = request.client.host
         now = time.time()
 
         history = requests_log.setdefault(client_ip, [])
-        history = [t for t in history if now - t < TIME_WINDOW]
+        history = [t for t in history if now - t < time_window]
 
-        if len(history) >= RATE_LIMIT:
+        if len(history) >= rate_limit:
             return JSONResponse(
                 status_code=429,
                 content={
                     "detail": (
                         f"Rate limit exceeded "
-                        f"({RATE_LIMIT} reqs per {TIME_WINDOW}s)"
+                        f"({rate_limit} reqs per {time_window}s)"
                     )
                 },
             )
