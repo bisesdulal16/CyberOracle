@@ -7,7 +7,6 @@ from typing import List
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from pydantic import BaseModel, Field
 
-from app.auth.rbac import require_roles
 from app.services.ollama_client import OllamaClient
 from app.services import dlp_engine
 from app.services.dlp_engine import PolicyDecision
