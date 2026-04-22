@@ -16,6 +16,9 @@ from sqlalchemy import select, func, and_
 from app.auth.rbac import require_roles
 from app.db.db import AsyncSessionLocal
 from app.models import LogEntry
+from app.services.threat_detector import detect_threats
+from app.utils.alert_manager import send_alert
+from app.utils.db_encryption import is_encryption_enabled
 
 router = APIRouter(prefix="/api", tags=["reports"])
 
@@ -162,4 +165,117 @@ async def get_reports_summary(
         "event_type_breakdown": event_type_breakdown,
         "decision_breakdown": decision_breakdown,
         "top_endpoints": top_endpoints,
+    }
+
+
+@router.get("/reports/remediation")
+async def get_remediation_report(
+    window_hours: int = Query(
+        default=1, ge=1, le=24, description="Analysis window in hours (1–24)"
+    ),
+    _user: dict = Depends(require_roles("admin", "developer", "auditor")),
+):
+    """
+    PSPR8 — Threat analysis + remediation report.
+
+    Runs pattern detection across recent logs and returns:
+    - Detected threat findings with severity
+    - Step-by-step remediation actions per finding
+    - An overall report status and summary
+
+    Also fires Discord/Slack/email alerts for high-severity findings.
+    """
+    findings = await detect_threats(window_hours=window_hours)
+
+    for finding in findings:
+        if finding["severity"] == "high":
+            send_alert(
+                message=finding["description"],
+                severity="high",
+                source="threat_detector",
+            )
+
+    critical = [f for f in findings if f["severity"] == "high"]
+    status = "THREATS_DETECTED" if findings else "CLEAN"
+    overall_severity = "critical" if critical else ("medium" if findings else "none")
+
+    return {
+        "generated_at": datetime.utcnow().isoformat() + "Z",
+        "analysis_window_hours": window_hours,
+        "status": status,
+        "overall_severity": overall_severity,
+        "total_findings": len(findings),
+        "critical_findings": len(critical),
+        "findings": findings,
+        "summary": (
+            f"{len(findings)} threat(s) detected ({len(critical)} critical). "
+            "Review each finding and follow the remediation steps."
+            if findings
+            else "No threats detected in the analysis window. System operating normally."
+        ),
+    }
+
+
+@router.get("/reports/db-audit")
+async def get_db_audit(
+    _user: dict = Depends(require_roles("admin", "developer", "auditor")),
+):
+    """
+    PSPR8 — Database security audit.
+
+    Returns log volume, severity breakdown, 24h policy decision counts,
+    high-risk event count, and database encryption status.
+    """
+    since_24h = datetime.utcnow() - timedelta(hours=24)
+
+    async with AsyncSessionLocal() as session:
+        total = (
+            await session.execute(select(func.count()).select_from(LogEntry))
+        ).scalar() or 0
+
+        severity_breakdown: dict[str, int] = {}
+        for level in ("low", "medium", "high"):
+            severity_breakdown[level] = (
+                await session.execute(
+                    select(func.count()).where(LogEntry.severity == level)
+                )
+            ).scalar() or 0
+
+        decision_breakdown: dict[str, int] = {}
+        for decision in ("allow", "redact", "block"):
+            decision_breakdown[decision] = (
+                await session.execute(
+                    select(func.count()).where(
+                        and_(
+                            LogEntry.policy_decision == decision,
+                            LogEntry.created_at >= since_24h,
+                        )
+                    )
+                )
+            ).scalar() or 0
+
+        high_risk_24h = (
+            await session.execute(
+                select(func.count()).where(
+                    and_(
+                        LogEntry.risk_score >= 0.7,
+                        LogEntry.created_at >= since_24h,
+                    )
+                )
+            )
+        ).scalar() or 0
+
+    encryption_on = is_encryption_enabled()
+
+    return {
+        "audit_generated_at": datetime.utcnow().isoformat() + "Z",
+        "total_log_entries": total,
+        "severity_breakdown": severity_breakdown,
+        "policy_decisions_24h": decision_breakdown,
+        "high_risk_events_24h": high_risk_24h,
+        "database_security": {
+            "encryption_enabled": encryption_on,
+            "encrypted_fields": ["logs.message"] if encryption_on else [],
+            "audit_trail_active": True,
+        },
     }

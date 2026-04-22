@@ -1,6 +1,7 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 
+from app.auth.rbac import require_roles
 from app.middleware.dlp_presidio import presidio_scan
 from app.services.compliance_engine import evaluate_compliance
 from app.utils.logger import log_request
@@ -21,18 +22,21 @@ class ScanResponse(BaseModel):
 
 
 @router.post("/scan", response_model=ScanResponse)
-async def scan_text(payload: ScanRequest):
+async def scan_text(
+    payload: ScanRequest,
+    _user: dict = Depends(require_roles("admin", "developer")),
+):
     redacted, entities = presidio_scan(payload.text)
     compliance = evaluate_compliance(payload.text, entities)
-    
+
     await log_request(
         endpoint="/api/scan",
         method="POST",
         status_code=200,
-        message=redacted, # We save the REDACTED version
+        message=redacted,  # We save the REDACTED version
         frameworks=compliance["frameworks"],
         decision=compliance["decision"],
-        severity=compliance["severity"]
+        severity=compliance["severity"],
     )
 
     return ScanResponse(
