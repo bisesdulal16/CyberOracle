@@ -1,5 +1,6 @@
 # app/routes/ai.py
 
+import os
 import time
 import uuid
 from typing import List
@@ -16,6 +17,16 @@ from app.utils.logger import log_request, mask_sensitive
 from app.auth.rbac import require_permission
 
 router = APIRouter()
+
+# ---------------------------------------------------------------------------
+# Model selection
+# ---------------------------------------------------------------------------
+# Override via OLLAMA_MODEL env var, e.g:
+#   OLLAMA_MODEL=llama3:latest        (full model, GPU recommended)
+#   OLLAMA_MODEL=llama3.2:1b          (fast, CPU-friendly)
+#   OLLAMA_MODEL=llama3.2:3b          (balanced)
+# Defaults to llama3.2:1b for CPU performance when no GPU is available.
+OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "llama3.2:1b")
 
 
 class AIQueryRequest(BaseModel):
@@ -65,8 +76,8 @@ async def ai_query(
     request_id = str(uuid.uuid4())
     client_ip = request.client.host if request.client else None
 
-    # ✅ MVP: Force Ollama model tag (avoid client sending "openai" etc.)
-    model = "llama3:latest"
+    # Use env-configured model (defaults to llama3.2:1b for CPU performance)
+    model = OLLAMA_MODEL
 
     # ------------------------------------------------------------------
     # 1) INPUT DLP
@@ -137,7 +148,6 @@ async def ai_query(
     except Exception as e:
         latency_ms = int((time.time() - start) * 1000)
 
-        # log failure too (masked)
         masked_log = mask_sensitive(
             str(
                 {
