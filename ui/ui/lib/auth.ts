@@ -4,10 +4,8 @@
  * Stores the JWT access token and role in localStorage.
  * Provides an apiFetch() wrapper that automatically attaches
  * the Bearer token and redirects to /login on HTTP 401.
- *
- * Usage
- * -----
- *   import { apiFetch, saveAuth, clearAuth, isAuthenticated, getRole } from '../lib/auth';
+ * Handles 429 rate limit responses by passing them through
+ * to individual components for graceful degradation.
  */
 
 const TOKEN_KEY = 'co_token';
@@ -54,9 +52,8 @@ export function isAuthenticated(): boolean {
  * Drop-in replacement for fetch() that:
  *  - Attaches `Authorization: Bearer <token>` when a token is stored.
  *  - Redirects to /login and clears auth on HTTP 401.
- *
- * All other behaviour (error handling, response parsing) is left to the caller,
- * identical to the standard fetch API.
+ *  - Passes 429 responses through so components can handle
+ *    rate limit countdowns themselves.
  */
 export async function apiFetch(
   input: RequestInfo | URL,
@@ -76,9 +73,9 @@ export async function apiFetch(
 
   if (response.status === 401) {
     clearAuth();
-    // Full redirect — the current page is abandoned and the user lands on login
     window.location.replace('/login');
   }
 
+  // 429 is returned as-is — individual components handle the countdown
   return response;
 }
