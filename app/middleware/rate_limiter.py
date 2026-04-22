@@ -3,7 +3,8 @@ Rate Limiting Middleware
 ------------------------
 Implements per-IP, per-role sliding window rate limiting.
 
-Roles and limits are driven by policy.yaml (OWASP API Security Top 10 – API4: Unrestricted Resource Consumption).
+Roles and limits are driven by policy.yaml:
+(OWASP API Security Top 10 – API4: Unrestricted Resource Consumption).
 Falls back to a conservative default for unauthenticated requests.
 
 Monitoring/health endpoints are exempt from rate limiting to prevent
@@ -34,9 +35,9 @@ EXEMPT_PATHS = {
 
 # Role-based limits (requests per window) — mirrors policy.yaml
 ROLE_LIMITS: dict[str, int] = {
-    "admin":     1000,
+    "admin": 1000,
     "developer": 100,
-    "auditor":   50,
+    "auditor": 50,
 }
 
 # Unauthenticated / unknown role gets the most restrictive limit
@@ -53,7 +54,7 @@ TEST_TIME_WINDOW = 60
 requests_log: dict[str, list[float]] = {}
 
 SECRET_KEY = os.getenv("JWT_SECRET_KEY", "dev_only_secret_change_in_prod")
-ALGORITHM  = "HS256"
+ALGORITHM = "HS256"
 
 
 def _get_role_from_request(request: Request) -> str | None:
@@ -86,19 +87,19 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
 
         # Resolve limits for this request
         if test_mode:
-            rate_limit  = TEST_RATE_LIMIT
+            rate_limit = TEST_RATE_LIMIT
             time_window = TEST_TIME_WINDOW
         else:
-            role        = _get_role_from_request(request)
-            rate_limit  = ROLE_LIMITS.get(role, DEFAULT_LIMIT) if role else DEFAULT_LIMIT
+            role = _get_role_from_request(request)
+            rate_limit = ROLE_LIMITS.get(role, DEFAULT_LIMIT) if role else DEFAULT_LIMIT
             time_window = PROD_TIME_WINDOW
 
         # Build a tracking key: IP + role so roles don't share buckets
-        role_tag   = _get_role_from_request(request) or "anon"
-        client_ip  = request.client.host if request.client else "unknown"
+        role_tag = _get_role_from_request(request) or "anon"
+        client_ip = request.client.host if request.client else "unknown"
         bucket_key = f"{client_ip}:{role_tag}"
 
-        now     = time.time()
+        now = time.time()
         history = requests_log.setdefault(bucket_key, [])
         history = [t for t in history if now - t < time_window]
 
