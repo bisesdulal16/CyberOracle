@@ -7,6 +7,7 @@ from datetime import datetime, timedelta
 from app.auth.rbac import require_roles
 from app.db.db import AsyncSessionLocal
 from app.models import LogEntry
+from app.utils.db_encryption import is_encryption_enabled, get_key_id, decrypt_value
 
 router = APIRouter(prefix="/api", tags=["metrics"])
 
@@ -205,7 +206,7 @@ async def get_recent_alerts(
             "id": str(entry.id),
             "type": entry.event_type or "Security Event",
             "severity": entry.severity or "high",
-            "message": (entry.message or "")[:200],
+            "message": (decrypt_value(entry.message) or "")[:200],
             "timestamp": entry.created_at.isoformat() + "Z" if entry.created_at else "",
         }
         for entry in entries
@@ -227,3 +228,26 @@ async def get_recent_alerts(
         ]
 
     return {"alerts": alerts}
+
+
+@router.get("/security/encryption-status")
+async def get_encryption_status(
+    _user: dict = Depends(require_roles("admin", "developer", "auditor")),
+):
+    """
+    PSPR6 — Reports whether database encryption is active.
+
+    Returns the current encryption state, algorithm, key version,
+    and coverage so it can be included in deployment reports.
+    """
+    enabled = is_encryption_enabled()
+    return {
+        "encryption_enabled": enabled,
+        "algorithm": "Fernet (AES-128-CBC + HMAC-SHA256)" if enabled else "none",
+        "key_id": get_key_id() if enabled else None,
+        "encrypted_fields": ["logs.message"] if enabled else [],
+        "data_at_rest": enabled,
+        "data_in_transit": True,
+        "transit_mechanism": "HTTPS/TLS (certs/server.crt)",
+        "status": "ACTIVE" if enabled else "DISABLED",
+    }

@@ -11,7 +11,7 @@ services:
       POSTGRES_PASSWORD: postgres
       POSTGRES_DB: cyberoracle
     ports:
-      - "5432:5432"
+      - "5434:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
 
@@ -28,6 +28,16 @@ services:
       - "8000:8000"
     environment:
       - DATABASE_URL=postgresql+asyncpg://postgres:postgres@db:5432/cyberoracle
+      - DB_ENCRYPTION_ENABLED=true
+      - DB_ENCRYPTION_KEY=${DB_ENCRYPTION_KEY}
+      - DB_ENCRYPTION_KEY_ID=${DB_ENCRYPTION_KEY_ID:-v1}
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY}
+      - ADMIN_USERNAME=${ADMIN_USERNAME:-admin}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD}
+      - DEV_USERNAME=${DEV_USERNAME:-developer}
+      - DEV_PASSWORD=${DEV_PASSWORD}
+      - AUDITOR_USERNAME=${AUDITOR_USERNAME:-auditor}
+      - AUDITOR_PASSWORD=${AUDITOR_PASSWORD}
     depends_on:
       - db
 
@@ -37,13 +47,13 @@ services:
     container_name: cyberoracle-grafana
     restart: unless-stopped
     ports:
-      - "3000:3000"
+      - "3001:3000"
     environment:
       - GF_SECURITY_ADMIN_PASSWORD=admin
     depends_on:
       - db
     volumes:
-      - grafana_data:/var/lib/grafana   # <-- 🚀 THIS FIXES YOUR ISSUE
+      - grafana_data:/var/lib/grafana  
 
 volumes:
   pgdata:
