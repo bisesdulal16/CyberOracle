@@ -51,8 +51,9 @@ type Conversation = {
 
 import { apiFetch } from '../lib/auth';
 
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE ?? 'http://localhost:8010';
+const API_BASE = process.env.NEXT_PUBLIC_API_BASE ?? 'http://localhost:8003';
 const STORAGE_KEY = 'cyberoracle_secure_chat_conversations_v1';
+const RATE_LIMIT_WINDOW_SECONDS = 60;
 
 function Spinner({ className }: { className?: string }) {
   return <ArrowPathIcon className={`animate-spin text-cyan-400 ${className ?? 'w-5 h-5'}`} />;
@@ -107,6 +108,10 @@ export default function SecureChatPanel() {
   const [hideSensitive, setHideSensitive] = useState(true);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Rate limiting state
+  const [rateLimited, setRateLimited] = useState(false);
+  const [retryAfter, setRetryAfter] = useState(0);
 
   const [conversations, setConversations] = useState<Conversation[]>(() => [createEmptyConversation()]);
   const [activeConvId, setActiveConvId] = useState<string>(() => crypto.randomUUID());
@@ -224,7 +229,7 @@ export default function SecureChatPanel() {
   }
 
   async function send() {
-    if (!prompt.trim() || loading) return;
+    if (!prompt.trim() || loading || rateLimited) return;
 
     ensureActiveConversationExists();
     setLoading(true);
@@ -260,6 +265,30 @@ export default function SecureChatPanel() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ prompt: userText, model: 'ollama' }),
       });
+
+      // -------------------------------------------------------
+      // Handle rate limiting — show countdown, disable send
+      // -------------------------------------------------------
+      if (r.status === 429) {
+        setRateLimited(true);
+        setPrompt(userText); // restore prompt so user doesn't lose their message
+        setError('Rate limit reached. You can send again when the timer expires.');
+
+        let seconds = RATE_LIMIT_WINDOW_SECONDS;
+        setRetryAfter(seconds);
+
+        const interval = setInterval(() => {
+          seconds -= 1;
+          setRetryAfter(seconds);
+          if (seconds <= 0) {
+            clearInterval(interval);
+            setRateLimited(false);
+            setError(null);
+          }
+        }, 1000);
+
+        return;
+      }
 
       if (!r.ok) {
         const txt = await r.text();
@@ -365,6 +394,23 @@ export default function SecureChatPanel() {
         </div>
       </div>
 
+      {/* Rate limit banner — shown across the full panel */}
+      {rateLimited && (
+        <div className="mb-4 flex items-center gap-3 rounded-lg border border-yellow-500/30 bg-yellow-500/10 px-4 py-3">
+          <div className="flex-1">
+            <p className="text-sm font-semibold text-yellow-400">Rate limit reached</p>
+            <p className="text-xs text-yellow-400/70 mt-0.5">
+              Your role has a request limit per minute. You can send again in{' '}
+              <span className="font-bold">{retryAfter}s</span>.
+            </p>
+          </div>
+          {/* Circular countdown indicator */}
+          <div className="shrink-0 h-10 w-10 rounded-full border-2 border-yellow-500/40 flex items-center justify-center">
+            <span className="text-xs font-bold text-yellow-400">{retryAfter}</span>
+          </div>
+        </div>
+      )}
+
       {/* Main chat area */}
       <div className="flex-1 min-h-0 flex flex-col">
         {/* Empty state */}
@@ -388,11 +434,16 @@ export default function SecureChatPanel() {
                   onKeyDown={(e) => {
                     if (e.key === 'Enter') send();
                   }}
+                  disabled={rateLimited}
                 />
               </div>
 
               {error && (
-                <div className="mt-3 rounded-lg border border-red-500/20 bg-red-500/10 px-3 py-2 text-xs text-red-400">
+                <div className={`mt-3 rounded-lg border px-3 py-2 text-xs ${
+                  rateLimited
+                    ? 'border-yellow-500/20 bg-yellow-500/10 text-yellow-400'
+                    : 'border-red-500/20 bg-red-500/10 text-red-400'
+                }`}>
                   {error}
                 </div>
               )}
@@ -469,31 +520,40 @@ export default function SecureChatPanel() {
             {/* Bottom input */}
             <div className="bg-slate-900 border-t border-slate-800 p-4">
               {error && (
-                <div className="mb-3 rounded-lg border border-red-500/20 bg-red-500/10 px-3 py-2 text-xs text-red-400">
+                <div className={`mb-3 rounded-lg border px-3 py-2 text-xs ${
+                  rateLimited
+                    ? 'border-yellow-500/20 bg-yellow-500/10 text-yellow-400'
+                    : 'border-red-500/20 bg-red-500/10 text-red-400'
+                }`}>
                   {error}
                 </div>
               )}
 
               <div className="mx-auto max-w-4xl flex items-end gap-3">
-                <div className="flex-1 border border-slate-700 rounded-xl bg-slate-800 px-3 py-2">
+                <div className={`flex-1 border rounded-xl px-3 py-2 ${
+                  rateLimited
+                    ? 'border-yellow-500/30 bg-slate-800/50'
+                    : 'border-slate-700 bg-slate-800'
+                }`}>
                   <div className="flex items-start gap-2">
                     <textarea
                       value={prompt}
                       onChange={(e) => setPrompt(e.target.value)}
                       onKeyDown={onKeyDown}
                       rows={2}
-                      className="flex-1 outline-none resize-none text-sm bg-transparent text-slate-100 placeholder:text-slate-500"
-                      placeholder="Type your message here…"
+                      disabled={rateLimited}
+                      className="flex-1 outline-none resize-none text-sm bg-transparent text-slate-100 placeholder:text-slate-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                      placeholder={rateLimited ? `Rate limited — wait ${retryAfter}s…` : 'Type your message here…'}
                     />
                   </div>
                 </div>
 
                 <button
                   onClick={send}
-                  disabled={loading || !prompt.trim()}
-                  className="rounded-lg bg-cyan-500 hover:bg-cyan-400 px-4 py-3 text-sm font-semibold text-slate-900 disabled:opacity-60 disabled:cursor-not-allowed transition"
+                  disabled={loading || !prompt.trim() || rateLimited}
+                  className="rounded-lg bg-cyan-500 hover:bg-cyan-400 px-4 py-3 text-sm font-semibold text-slate-900 disabled:opacity-60 disabled:cursor-not-allowed transition min-w-[80px]"
                 >
-                  {loading ? 'Sending…' : 'Send'}
+                  {loading ? 'Sending…' : rateLimited ? `${retryAfter}s` : 'Send'}
                 </button>
               </div>
             </div>

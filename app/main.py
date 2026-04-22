@@ -54,27 +54,23 @@ app = FastAPI(
 
 
 # ------------------------------------------------
-# CORS Configuration
+# Security Middleware Stack
 # ------------------------------------------------
-# Restricts browser access to local development origins only.
-# Prevents unauthorized websites from making requests to the API.
+# Order matters — middleware runs in REVERSE registration order.
+# DLP and rate limiter are registered first so they run last (closest to the route).
+# CORS is registered last so it runs first (outermost wrapper),
+# ensuring CORS headers are always present — even on 429/4xx responses
+# returned early by the rate limiter or DLP filter.
+app.add_middleware(DLPFilterMiddleware)
+app.add_middleware(RateLimitMiddleware)
 app.add_middleware(
     CORSMiddleware,
-    allow_origin_regex=r"^http://(localhost|127\.0\.0\.1)(:\d+)?$",
+    allow_origin_regex=r"^https?://(localhost|127\.0\.0\.1|cyberoracle\.unt\.ad\.unt\.edu)(:\d+)?$",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["Retry-After"],  # allows frontend to read the header for countdown
 )
-
-
-# ------------------------------------------------
-# Security Middleware Stack
-# ------------------------------------------------
-# Order matters:
-# 1. DLP filter scans requests for sensitive data
-# 2. Rate limiter protects API from abuse
-app.add_middleware(DLPFilterMiddleware)
-app.add_middleware(RateLimitMiddleware)
 
 
 # ------------------------------------------------
