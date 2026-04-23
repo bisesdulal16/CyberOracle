@@ -125,4 +125,3 @@ pre-commit==4.3.0           # Git hook manager for repo security and automation
 #  • When updating, run `pip freeze > requirements.txt` to sync with CI.
 ###############################################################################
 passlib[bcrypt]==1.7.4
-bcrypt==4.0.1
