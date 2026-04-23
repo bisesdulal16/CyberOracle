@@ -9,7 +9,7 @@ Targets:
 
 import asyncio
 import os
-from unittest.mock import MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from fastapi.testclient import TestClient
@@ -176,11 +176,14 @@ def test_login_returns_bearer_token_type():
 
 def test_dlp_scan_with_valid_admin_token():
     token = _get_token()
-    response = client.post(
-        "/api/scan",
-        json={"text": "My SSN is 123-45-6789"},
-        headers={"Authorization": f"Bearer {token}"},
-    )
+    # Patch log_request to avoid asyncpg concurrent-operation errors in the
+    # synchronous TestClient context (the real DB call is covered elsewhere).
+    with patch("app.routes.dlp.log_request", new_callable=AsyncMock):
+        response = client.post(
+            "/api/scan",
+            json={"text": "My SSN is 123-45-6789"},
+            headers={"Authorization": f"Bearer {token}"},
+        )
     assert response.status_code == 200
     assert "redacted" in response.json()
 
