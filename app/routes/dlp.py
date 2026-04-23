@@ -1,3 +1,14 @@
+"""
+DLP Scan Route
+--------------
+Exposes the Presidio-based DLP scanner as a standalone endpoint.
+Input validation applied to prevent oversized payloads.
+OWASP API4: Unrestricted Resource Consumption
+"""
+
+from fastapi import APIRouter, Depends
+from pydantic import BaseModel, field_validator
+
 from app.auth.rbac import require_roles
 from app.middleware.dlp_presidio import presidio_scan
 from app.services.compliance_engine import evaluate_compliance
@@ -32,7 +43,11 @@ async def scan_text(
     payload: ScanRequest,
     _user: dict = Depends(require_roles("admin", "developer")),
 ):
-  
+    """
+    DLP scan endpoint — admin and developer only.
+    Auditors cannot trigger DLP scans.
+    OWASP API1: Broken Object Level Authorization
+    """
     redacted, entities = presidio_scan(payload.text)
     compliance = evaluate_compliance(payload.text, entities)
 
