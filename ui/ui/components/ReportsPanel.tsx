@@ -30,6 +30,14 @@ function sevenDaysAgoStr() {
   return d.toISOString().slice(0, 10);
 }
 
+// Validate YYYY-MM-DD format strictly
+// OWASP API3: Prevents injection via malformed date parameters
+function isValidDate(dateStr: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return false;
+  const d = new Date(dateStr);
+  return d instanceof Date && !isNaN(d.getTime());
+}
+
 function decisionColor(d: string): string {
   const v = d.toLowerCase();
   if (v === 'block') return 'bg-red-400/10 text-red-400';
@@ -128,12 +136,28 @@ const ReportsPanel: React.FC = () => {
   const [endDate, setEndDate] = useState(todayStr());
   const [report, setReport] = useState<ReportData | null>(null);
   const [loading, setLoading] = useState(false);
-  const [fetchError, setFetchError] = useState(false);
+  const [fetchError, setFetchError] = useState('');
   const [hasGenerated, setHasGenerated] = useState(false);
 
   async function generateReport() {
+    setFetchError('');
+
+    // Client-side date validation before hitting the backend
+    // OWASP API3: Validate inputs on both client and server
+    if (!isValidDate(startDate)) {
+      setFetchError('Invalid start date. Use YYYY-MM-DD format.');
+      return;
+    }
+    if (!isValidDate(endDate)) {
+      setFetchError('Invalid end date. Use YYYY-MM-DD format.');
+      return;
+    }
+    if (new Date(startDate) > new Date(endDate)) {
+      setFetchError('Start date must be before end date.');
+      return;
+    }
+
     setLoading(true);
-    setFetchError(false);
     try {
       const params = new URLSearchParams({ start_date: startDate, end_date: endDate });
       const res = await apiFetch(`${API_BASE}/api/reports/summary?${params}`);
@@ -142,7 +166,7 @@ const ReportsPanel: React.FC = () => {
       setReport(data);
       setHasGenerated(true);
     } catch {
-      setFetchError(true);
+      setFetchError('Backend unavailable — start the CyberOracle backend to generate reports.');
       setReport(null);
     } finally {
       setLoading(false);
@@ -218,8 +242,8 @@ const ReportsPanel: React.FC = () => {
 
       {/* Error */}
       {fetchError && (
-        <div className="rounded-lg border border-amber-500/20 bg-amber-400/5 px-4 py-3 text-xs text-amber-400">
-          Backend unavailable — start the CyberOracle backend to generate reports.
+        <div className="rounded-lg border border-red-500/20 bg-red-500/10 px-4 py-3 text-xs text-red-400">
+          {fetchError}
         </div>
       )}
 
@@ -233,14 +257,12 @@ const ReportsPanel: React.FC = () => {
       {/* Results */}
       {report && (
         <>
-          {/* Period badge */}
           <div className="flex items-center gap-2">
             <span className="rounded-full bg-cyan-400/10 border border-cyan-500/30 px-3 py-1 text-xs font-medium text-cyan-400">
               {report.period.start} → {report.period.end}
             </span>
           </div>
 
-          {/* Summary cards */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <StatCard label="Total Requests" value={total} />
             <StatCard
@@ -263,13 +285,9 @@ const ReportsPanel: React.FC = () => {
             />
           </div>
 
-          {/* Middle row: severity + policy decisions */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            {/* Severity */}
             <div className="bg-slate-900 border border-slate-800 rounded-xl p-5">
-              <h2 className="text-sm font-semibold text-slate-200 mb-4">
-                Severity breakdown
-              </h2>
+              <h2 className="text-sm font-semibold text-slate-200 mb-4">Severity breakdown</h2>
               <div className="space-y-3">
                 <BarRow label="High" value={report.severity.high} total={total} colorClass="bg-red-400" />
                 <BarRow label="Medium" value={report.severity.medium} total={total} colorClass="bg-amber-400" />
@@ -277,20 +295,15 @@ const ReportsPanel: React.FC = () => {
               </div>
             </div>
 
-            {/* Policy decisions */}
             <div className="bg-slate-900 border border-slate-800 rounded-xl p-5">
-              <h2 className="text-sm font-semibold text-slate-200 mb-4">
-                Policy decisions
-              </h2>
+              <h2 className="text-sm font-semibold text-slate-200 mb-4">Policy decisions</h2>
               {report.decision_breakdown.length === 0 ? (
                 <p className="text-xs text-slate-500">No decisions recorded.</p>
               ) : (
                 <div className="space-y-2">
                   {report.decision_breakdown.map((row) => (
                     <div key={row.decision} className="flex items-center justify-between">
-                      <span
-                        className={`text-xs px-2 py-0.5 rounded-full font-semibold ${decisionColor(row.decision)}`}
-                      >
+                      <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${decisionColor(row.decision)}`}>
                         {row.decision.charAt(0).toUpperCase() + row.decision.slice(1)}
                       </span>
                       <div className="flex items-center gap-3">
@@ -303,16 +316,10 @@ const ReportsPanel: React.FC = () => {
                                   ? 'bg-amber-400'
                                   : 'bg-emerald-400'
                             }`}
-                            style={{
-                              width: total > 0
-                                ? `${Math.round((row.count / total) * 100)}%`
-                                : '0%',
-                            }}
+                            style={{ width: total > 0 ? `${Math.round((row.count / total) * 100)}%` : '0%' }}
                           />
                         </div>
-                        <span className="text-xs text-slate-400 w-8 text-right">
-                          {row.count}
-                        </span>
+                        <span className="text-xs text-slate-400 w-8 text-right">{row.count}</span>
                       </div>
                     </div>
                   ))}
@@ -321,13 +328,9 @@ const ReportsPanel: React.FC = () => {
             </div>
           </div>
 
-          {/* Bottom row: event types + top endpoints */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            {/* Event type breakdown */}
             <div className="bg-slate-900 border border-slate-800 rounded-xl p-5">
-              <h2 className="text-sm font-semibold text-slate-200 mb-4">
-                Event types
-              </h2>
+              <h2 className="text-sm font-semibold text-slate-200 mb-4">Event types</h2>
               {report.event_type_breakdown.length === 0 ? (
                 <p className="text-xs text-slate-500">No events recorded.</p>
               ) : (
@@ -345,11 +348,8 @@ const ReportsPanel: React.FC = () => {
               )}
             </div>
 
-            {/* Top endpoints */}
             <div className="bg-slate-900 border border-slate-800 rounded-xl p-5">
-              <h2 className="text-sm font-semibold text-slate-200 mb-4">
-                Top endpoints
-              </h2>
+              <h2 className="text-sm font-semibold text-slate-200 mb-4">Top endpoints</h2>
               {report.top_endpoints.length === 0 ? (
                 <p className="text-xs text-slate-500">No endpoint data.</p>
               ) : (

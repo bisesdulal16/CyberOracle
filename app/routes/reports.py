@@ -5,8 +5,12 @@ Provides aggregated summary data for the Reports panel.
 
 Aggregates LogEntry rows within a caller-supplied date range and
 returns counts + breakdowns suitable for display and CSV export.
+
+Input validation applied to date parameters to prevent injection.
+OWASP API3: Broken Object Property Level Authorization
 """
 
+import re
 from datetime import datetime, timedelta
 from typing import Optional
 
@@ -19,16 +23,38 @@ from app.models import LogEntry
 
 router = APIRouter(prefix="/api", tags=["reports"])
 
+# Strict date format: YYYY-MM-DD only
+# OWASP API3: Prevents injection via malformed date parameters
+DATE_PATTERN = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+
+
+def _parse_date(date_str: Optional[str], default: datetime) -> datetime:
+    """
+    Parse and validate a date string in YYYY-MM-DD format.
+    Returns default if input is None, empty, or malformed.
+    Strict regex check applied before strptime to prevent injection.
+    """
+    if not date_str:
+        return default
+    if not DATE_PATTERN.match(date_str):
+        return default
+    try:
+        return datetime.strptime(date_str, "%Y-%m-%d")
+    except ValueError:
+        return default
+
 
 @router.get("/reports/summary")
 async def get_reports_summary(
     start_date: Optional[str] = Query(
         default=None,
         description="ISO date string (YYYY-MM-DD). Defaults to 7 days ago.",
+        max_length=10,
     ),
     end_date: Optional[str] = Query(
         default=None,
-        description="ISO date string (YYYY-MM-DD). Defaults to today (end of day).",
+        description="ISO date string (YYYY-MM-DD). Defaults to today.",
+        max_length=10,
     ),
     _user: dict = Depends(require_roles("admin", "developer", "auditor")),
 ):
@@ -40,34 +66,21 @@ async def get_reports_summary(
     - total_requests
     - blocked / redacted / allowed counts
     - high / medium / low severity counts
-    - breakdown by event_type  (top 10)
+    - breakdown by event_type (top 10)
     - breakdown by policy_decision
     - top 5 endpoints by request volume
     - date range actually used
     """
-    # Parse / default date bounds
-    try:
-        since = (
-            datetime.strptime(start_date, "%Y-%m-%d")
-            if start_date
-            else datetime.utcnow() - timedelta(days=7)
-        )
-        until = (
-            # include the full end day
-            datetime.strptime(end_date, "%Y-%m-%d").replace(
-                hour=23, minute=59, second=59
-            )
-            if end_date
-            else datetime.utcnow()
-        )
-    except ValueError:
-        since = datetime.utcnow() - timedelta(days=7)
-        until = datetime.utcnow()
+    since = _parse_date(start_date, datetime.utcnow() - timedelta(days=7))
+    until = _parse_date(end_date, datetime.utcnow())
+
+    # Include the full end day
+    if end_date and DATE_PATTERN.match(end_date):
+        until = until.replace(hour=23, minute=59, second=59)
 
     async with AsyncSessionLocal() as session:
         base_filter = and_(LogEntry.created_at >= since, LogEntry.created_at <= until)
 
-        # --- totals ---
         r_total = await session.execute(select(func.count()).where(base_filter))
         total = r_total.scalar() or 0
 
@@ -92,7 +105,6 @@ async def get_reports_summary(
         )
         allowed = r_allowed.scalar() or 0
 
-        # --- severity breakdown ---
         r_high = await session.execute(
             select(func.count()).where(and_(base_filter, LogEntry.severity == "high"))
         )
@@ -108,7 +120,6 @@ async def get_reports_summary(
         )
         low = r_low.scalar() or 0
 
-        # --- event_type breakdown (top 10) ---
         r_event_types = await session.execute(
             select(LogEntry.event_type, func.count().label("cnt"))
             .where(and_(base_filter, LogEntry.event_type.isnot(None)))
@@ -120,7 +131,6 @@ async def get_reports_summary(
             {"event_type": row[0], "count": row[1]} for row in r_event_types.fetchall()
         ]
 
-        # --- policy_decision breakdown ---
         r_decisions = await session.execute(
             select(LogEntry.policy_decision, func.count().label("cnt"))
             .where(and_(base_filter, LogEntry.policy_decision.isnot(None)))
@@ -131,7 +141,6 @@ async def get_reports_summary(
             {"decision": row[0], "count": row[1]} for row in r_decisions.fetchall()
         ]
 
-        # --- top 5 endpoints ---
         r_endpoints = await session.execute(
             select(LogEntry.endpoint, func.count().label("cnt"))
             .where(base_filter)

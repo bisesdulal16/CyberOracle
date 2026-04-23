@@ -16,6 +16,8 @@ from app.utils.logger import log_request, mask_sensitive
 # RBAC permission enforcement
 from app.auth.rbac import require_permission
 
+from app.middleware.api_key_auth import verify_api_key
+
 router = APIRouter()
 
 # ---------------------------------------------------------------------------
@@ -148,13 +150,21 @@ async def ai_query(
     except Exception as e:
         latency_ms = int((time.time() - start) * 1000)
 
+        # Log full error detail server-side only — never expose to client
+        # repr(e) may contain connection strings or internal hostnames
+        import logging as _logging
+        _logging.getLogger("cyberoracle").error(
+            f"Model call failed [{request_id}]: {type(e).__name__}: {e}"
+        )
+
         masked_log = mask_sensitive(
             str(
                 {
                     "event": "ai_query_model_error",
                     "request_id": request_id,
                     "model": model,
-                    "error": repr(e),
+                    # Log exception type only, not full repr
+                    "error_type": type(e).__name__,
                     "client_ip": client_ip,
                 }
             )
@@ -169,7 +179,11 @@ async def ai_query(
             source="ai_route",
         )
 
-        raise HTTPException(status_code=502, detail=repr(e))
+        # Return generic message — never expose repr(e) to client
+        raise HTTPException(
+            status_code=502,
+            detail="AI model is currently unavailable. Please try again.",
+        )
 
     # ------------------------------------------------------------------
     # 3) OUTPUT DLP (Output Filter)
@@ -208,7 +222,7 @@ async def ai_query(
         "event": "ai_query",
         "request_id": request_id,
         "model": model,
-        "input_preview": req.prompt[:200],
+        "input_preview": input_redacted_text[:200],
         "output_preview": raw_output[:200],
         "policy_decision": output_decision.decision.value,
         "risk_score": combined_risk,
@@ -254,3 +268,17 @@ async def ai_query(
         },
         meta={"latency_ms": latency_ms},
     )
+
+
+@router.post("/ai/query/apikey", response_model=AIQueryResponse)
+async def ai_query_apikey(
+    req: AIQueryRequest,
+    request: Request,
+    _user: dict = Depends(verify_api_key),
+):
+    """
+    AI Gateway endpoint authenticated via X-API-Key header.
+    Identical DLP pipeline to /ai/query but for machine-to-machine access.
+    OWASP API2: Separate endpoint makes API key usage explicit and auditable.
+    """
+    return await ai_query(req, request, _user)

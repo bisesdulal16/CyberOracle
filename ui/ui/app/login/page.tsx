@@ -31,6 +31,11 @@ export default function LoginPage() {
         return;
       }
 
+      if (res.status === 422) {
+        setError('Invalid input. Username may only contain letters, numbers, hyphens, underscores, and dots.');
+        return;
+      }
+
       if (!res.ok) {
         setError('Login failed — backend unavailable. Please try again.');
         return;
@@ -40,7 +45,7 @@ export default function LoginPage() {
       saveAuth(data.access_token, data.role);
       router.replace('/dashboard');
     } catch {
-      setError('Cannot reach the backend. Make sure CyberOracle is running on port 8000.');
+      setError('Cannot reach the backend. Make sure CyberOracle is running.');
     } finally {
       setLoading(false);
     }
@@ -81,11 +86,15 @@ export default function LoginPage() {
               type="text"
               required
               autoComplete="username"
+              maxLength={100}
               value={username}
-              onChange={(e) => setUsername(e.target.value)}
+              onChange={(e) => setUsername(e.target.value.replace(/[^a-zA-Z0-9_\-\.]/g, ''))}
               className="block w-full rounded-lg bg-slate-800 border border-slate-700 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/50 focus:border-cyan-500/50 transition"
               placeholder="admin"
             />
+            <p className="text-[10px] text-slate-500 mt-1">
+              Letters, numbers, hyphens, underscores and dots only.
+            </p>
           </div>
 
           <div className="space-y-1">
@@ -100,6 +109,7 @@ export default function LoginPage() {
               type="password"
               required
               autoComplete="current-password"
+              maxLength={128}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               className="block w-full rounded-lg bg-slate-800 border border-slate-700 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/50 focus:border-cyan-500/50 transition"

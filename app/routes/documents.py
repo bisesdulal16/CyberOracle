@@ -5,8 +5,11 @@ Accepts PDF or DOCX file uploads, extracts text, runs regex-based DLP
 redaction using the existing CyberOracle DLP engine, and returns the
 sanitized text along with a breakdown of what was redacted.
 
-Endpoint:
-  POST /api/documents/sanitize
+Input validation:
+- File type restricted to PDF and DOCX only
+- File size limited to 10 MB
+- Filename sanitized to prevent path traversal attacks
+OWASP API3: Broken Object Property Level Authorization
 """
 
 import io
@@ -26,10 +29,9 @@ router = APIRouter(prefix="/api/documents", tags=["Documents"])
 ALLOWED_EXTENSIONS = {".pdf", ".docx"}
 MAX_FILE_SIZE_MB = 10
 
-
-# ---------------------------------------------------------------------------
-# Response schema
-# ---------------------------------------------------------------------------
+# Filename sanitization pattern — allow only safe characters
+# OWASP API3: Prevents path traversal via malicious filenames
+SAFE_FILENAME_PATTERN = re.compile(r"[^\w\s\-\.]")
 
 
 class RedactionFinding(BaseModel):
@@ -45,14 +47,24 @@ class SanitizeResponse(BaseModel):
     redacted_text: str
 
 
-# ---------------------------------------------------------------------------
-# Text extraction helpers
-# ---------------------------------------------------------------------------
+def _sanitize_filename(filename: str) -> str:
+    """
+    Strip path components and dangerous characters from filename.
+    Prevents directory traversal and injection via filename.
+    OWASP API3: Input validation on file metadata.
+    """
+    # Strip any directory components first
+    base = os.path.basename(filename)
+    # Remove any characters that aren't alphanumeric, spaces, hyphens, underscores, or dots
+    safe = SAFE_FILENAME_PATTERN.sub("", base)
+    # Limit length
+    safe = safe[:255]
+    return safe if safe else "uploaded_file"
 
 
 def _extract_text_pdf(content: bytes) -> str:
     """Extract plain text from a PDF using pdfplumber."""
-    import pdfplumber  # lazy import — only needed when PDF is uploaded
+    import pdfplumber
 
     text_parts: List[str] = []
     with pdfplumber.open(io.BytesIO(content)) as pdf:
@@ -65,15 +77,10 @@ def _extract_text_pdf(content: bytes) -> str:
 
 def _extract_text_docx(content: bytes) -> str:
     """Extract plain text from a DOCX using python-docx."""
-    from docx import Document  # lazy import — only needed when DOCX is uploaded
+    from docx import Document
 
     doc = Document(io.BytesIO(content))
     return "\n".join(para.text for para in doc.paragraphs if para.text.strip())
-
-
-# ---------------------------------------------------------------------------
-# Finding counter (runs on original text before redaction)
-# ---------------------------------------------------------------------------
 
 
 def _count_findings(text: str) -> List[RedactionFinding]:
@@ -89,11 +96,6 @@ def _count_findings(text: str) -> List[RedactionFinding]:
     return sorted(findings, key=lambda f: f.count, reverse=True)
 
 
-# ---------------------------------------------------------------------------
-# Route
-# ---------------------------------------------------------------------------
-
-
 @router.post("/sanitize", response_model=SanitizeResponse)
 async def sanitize_document(
     file: UploadFile = File(...),
@@ -102,13 +104,17 @@ async def sanitize_document(
     """
     Upload a PDF or DOCX document for DLP scanning and redaction.
 
+    - Validates and sanitizes filename (path traversal prevention)
     - Validates file type (PDF and DOCX only)
     - Enforces 10 MB size limit
     - Extracts text and runs regex DLP (SSN, credit card, email, API keys)
     - Returns sanitized text and a findings breakdown
     """
-    # --- Validate extension ---
-    filename = file.filename or ""
+    # Sanitize filename — strip path traversal and dangerous characters
+    raw_filename = file.filename or ""
+    filename = _sanitize_filename(raw_filename)
+
+    # Validate extension
     ext = os.path.splitext(filename)[1].lower()
     if ext not in ALLOWED_EXTENSIONS:
         raise HTTPException(
@@ -119,10 +125,8 @@ async def sanitize_document(
             ),
         )
 
-    # --- Read file content ---
+    # Read and enforce size limit
     content = await file.read()
-
-    # --- Enforce size limit ---
     max_bytes = MAX_FILE_SIZE_MB * 1024 * 1024
     if len(content) > max_bytes:
         raise HTTPException(
@@ -130,7 +134,7 @@ async def sanitize_document(
             detail=f"File too large. Maximum allowed size is {MAX_FILE_SIZE_MB} MB.",
         )
 
-    # --- Extract text ---
+    # Extract text
     try:
         if ext == ".pdf":
             raw_text = _extract_text_pdf(content)
@@ -139,9 +143,15 @@ async def sanitize_document(
             raw_text = _extract_text_docx(content)
             file_type = "DOCX"
     except Exception as exc:
+        # Log full detail server-side, return safe message to client
+        import logging as _logging
+        _logging.getLogger("cyberoracle").error(
+            f"Document extraction failed for {filename}: {type(exc).__name__}: {exc}"
+        )
         raise HTTPException(
             status_code=422,
-            detail=f"Could not extract text from the file: {exc}",
+            detail="Could not extract text from this file. "
+                   "Ensure it is a valid, unprotected PDF or DOCX.",
         )
 
     if not raw_text.strip():
@@ -153,13 +163,12 @@ async def sanitize_document(
             ),
         )
 
-    # --- DLP scan ---
+    # DLP scan
     findings = _count_findings(raw_text)
     redacted_text, _ = scan_text(raw_text)
     total_redactions = sum(f.count for f in findings)
 
-    # --- Audit log ---
-    # risk_score: cap at 1.0, scaled by redaction count (5+ = max risk)
+    # Audit log
     risk_score = min(1.0, total_redactions / 5.0) if total_redactions > 0 else 0.0
     severity = "high" if risk_score >= 0.7 else "medium" if risk_score >= 0.3 else "low"
     policy_decision = "redact" if total_redactions > 0 else "allow"

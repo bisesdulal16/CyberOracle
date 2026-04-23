@@ -3,15 +3,19 @@ Secure Logging Utilities
 ========================
 Implements masked logging for sensitive fields and safe async log storage.
 
-OWASP Logging Guidance:
-- Never log secrets, tokens, passwords, or API keys.
+OWASP Logging Guidance (OWASP-ASVS 9.1):
+- Never log secrets, tokens, passwords, SSNs, or credit card numbers.
 - Always sanitize logs before writing to stdout or the database.
-- Ensure logs cannot leak sensitive fields during debugging, auditing, or errors.
+- Apply masking as a final safety net even if callers pre-mask.
+- Encrypt stored log messages when DB_ENCRYPTION_ENABLED=true.
+- Compute integrity hash for tamper-evidence (OWASP-ASVS 9.5).
 """
 
+import hashlib
 import logging
 import re
 from typing import Optional
+
 from app.db.db import AsyncSessionLocal
 from app.models import LogEntry
 from app.utils.db_encryption import encrypt_value
@@ -28,17 +32,40 @@ formatter = logging.Formatter("[%(asctime)s] %(levelname)s: %(message)s")
 handler.setFormatter(formatter)
 logger.addHandler(handler)
 
-# Sensitive fields that must NEVER appear in logs (OWASP-ASVS 9.1)
+# -------------------------------------------------------------------------
+# Sensitive patterns — OWASP-ASVS 9.1.1
+# Covers query-string, JSON, header, and raw value formats
+# -------------------------------------------------------------------------
 SENSITIVE_PATTERNS = {
-    "password": r"password=[^&\s]+",
-    "token": r"token=[^&\s]+",
-    "api_key": r"api[_-]?key=[^&\s]+",
+    # Passwords in any format: password=abc, "password": "abc", password: abc
+    "password": r"(?i)password['\"]?\s*[:=]\s*['\"]?[^\s,'\"\}&]+",
+
+    # Bearer tokens and JWT values
+    "token": r"(?i)(bearer\s+|token['\"]?\s*[:=]\s*['\"]?)[A-Za-z0-9\-_\.]+",
+
+    # API keys in any format
+    "api_key": r"(?i)api[_-]?key['\"]?\s*[:=]\s*['\"]?[^\s,'\"\}&]+",
+
+    # US Social Security Numbers
+    "ssn": r"\b\d{3}-\d{2}-\d{4}\b",
+
+    # Credit card numbers (major card types)
+    "credit_card": r"\b(?:4[0-9]{12}(?:[0-9]{3})?|5[1-5][0-9]{14}|3[47][0-9]{13}|6(?:011|5[0-9]{2})[0-9]{12})\b",
+
+    # Email addresses
+    "email": r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}",
+
+    # Authorization headers
+    "authorization": r"(?i)authorization['\"]?\s*[:=]\s*['\"]?[^\s,'\"\}&]+",
 }
 
 
 def mask_sensitive(text: str) -> str:
     """
-    Mask sensitive values before logging.
+    Mask sensitive values before logging or storing.
+
+    Covers passwords, tokens, API keys, SSNs, credit cards,
+    emails, and authorization headers in any common format.
 
     Parameters
     ----------
@@ -48,32 +75,75 @@ def mask_sensitive(text: str) -> str:
     Returns
     -------
     str
-        Sanitized message where sensitive fields are masked.
+        Sanitized message where sensitive values are replaced
+        with ***MASKED*** while keeping field names visible
+        for debugging.
 
     Notes (OWASP-ASVS 9.1.1)
     ------------------------
-    Logging secrets is a critical vulnerability.
-    We replace values but keep field names for debugging visibility.
+    Logging secrets is a critical vulnerability that can lead
+    to credential theft, compliance violations, and data breaches.
     """
     if not isinstance(text, str):
-        return text
+        return str(text) if text is not None else ""
 
     masked = text
     for label, pattern in SENSITIVE_PATTERNS.items():
-        masked = re.sub(pattern, f"{label}=***MASKED***", masked, flags=re.IGNORECASE)
+        masked = re.sub(
+            pattern,
+            f"***{label.upper()}_MASKED***",
+            masked,
+            flags=re.IGNORECASE,
+        )
     return masked
 
 
 def secure_log(message: str) -> None:
     """
-    Log a message safely using masked output.
+    Log a message safely after applying sensitive data masking.
 
-    Notes
-    -----
-    Protects logs from leaking credentials during debugging.
+    Always use this instead of logger.info() directly to ensure
+    no sensitive data reaches log output.
     """
     safe_msg = mask_sensitive(message)
     logger.info(safe_msg)
+
+
+def compute_log_hash(
+    endpoint: str,
+    method: str,
+    status_code: int,
+    message: Optional[str],
+    event_type: Optional[str],
+) -> str:
+    """
+    Compute a SHA-256 integrity hash over core log fields.
+
+    Used for tamper-evidence detection (OWASP-ASVS 9.5).
+    If any field is modified after storage, the hash will
+    no longer match and the entry is flagged as tampered.
+
+    Parameters
+    ----------
+    endpoint    : API endpoint string
+    method      : HTTP method
+    status_code : HTTP response status
+    message     : Log message (pre-masked)
+    event_type  : Event classification string
+
+    Returns
+    -------
+    str
+        64-character hex SHA-256 digest
+    """
+    raw = "|".join([
+        str(endpoint or ""),
+        str(method or ""),
+        str(status_code or ""),
+        str(message or ""),
+        str(event_type or ""),
+    ])
+    return hashlib.sha256(raw.encode("utf-8")).hexdigest()
 
 
 async def log_request(
@@ -93,37 +163,31 @@ async def log_request(
     """
     Store structured log entries asynchronously in the database.
 
-    Params
-    ------
-    endpoint : str
-        Endpoint accessed e.g. "/ai/query"
-    method : str
-        HTTP method used (GET/POST/etc.)
-    status_code : int
-        Resulting HTTP status
-    message : str, optional
-        Additional details, already masked by caller. Encrypted before storage
-        if DB_ENCRYPTION_ENABLED=true in the environment.
-    event_type : str, optional
-        Classifier e.g. "ai_query", "ai_query_blocked", "dlp_alert"
-    severity : str, optional
-        "low" | "medium" | "high" — derived from risk_score by caller
-    risk_score : float, optional
-        DLP risk score in [0.0, 1.0]
-    source : str, optional
-        Originating component e.g. "ai_route", "dlp_middleware"
-    policy_decision : str, optional
-        DLP outcome: "allow" | "redact" | "block"
-    user_id : str, optional
-        Authenticated user identifier (reserved for RBAC, future use)
+    Applies mask_sensitive() as a final safety net before storage,
+    computes an integrity hash for tamper-evidence detection,
+    and encrypts the message field with Fernet when
+    DB_ENCRYPTION_ENABLED=true.
 
-    Security Notes (OWASP-ASVS 9.3)
-    --------------------------------
-    - Only masked content should be passed as message.
-    - Message is additionally Fernet-encrypted when DB_ENCRYPTION_ENABLED=true.
+    Security Notes (OWASP-ASVS 9.3, 9.5)
+    --------------------------------------
+    - mask_sensitive() applied as defence-in-depth.
+    - Integrity hash computed before encryption for verification.
+    - Message encrypted at rest.
     """
-    # Encrypt the message field before DB storage when encryption is active
-    stored_message = encrypt_value(message) if message else message
+    # Apply masking as a final safety net
+    safe_message = mask_sensitive(message) if message else message
+
+    # Compute integrity hash BEFORE encryption so we can verify on read
+    integrity_hash = compute_log_hash(
+        endpoint=endpoint,
+        method=method,
+        status_code=status_code,
+        message=safe_message,
+        event_type=event_type,
+    )
+
+    # Encrypt the masked message before DB storage
+    stored_message = encrypt_value(safe_message) if safe_message else safe_message
 
     frameworks_str = ", ".join(frameworks) if frameworks else None
 
@@ -140,6 +204,7 @@ async def log_request(
             risk_score=risk_score,
             source=source,
             policy_decision=policy_decision,
+            integrity_hash=integrity_hash,
         )
         session.add(entry)
         await session.commit()
