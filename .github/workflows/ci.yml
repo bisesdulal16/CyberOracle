@@ -55,7 +55,7 @@ jobs:
           PYTEST: ${{ env.PYTEST }}
           DATABASE_URL: ${{ env.DATABASE_URL }}
         run: |
-          pytest --cov=app --cov-fail-under=80 --maxfail=1 --disable-warnings -q
+          pytest app/tests/ tests/ --cov=app --cov-fail-under=80 --maxfail=1 --disable-warnings -q
           coverage report -m
 
       - name: Set up kubectl
