@@ -10,7 +10,6 @@ OWASP API7: Security Misconfiguration
 import pytest
 from httpx import ASGITransport, AsyncClient
 from fastapi import FastAPI
-from starlette.middleware.exceptions import ExceptionMiddleware
 from app.utils.exception_handler import secure_exception_handler
 
 
@@ -75,7 +74,7 @@ async def test_exception_handler_does_not_leak_connection_string():
             assert "secret" not in response_text
             assert "ValueError" not in response_text
             assert "Traceback" not in response_text
-        except ValueError as e:
+        except ValueError:
             # Exception propagated without reaching client — still safe
             # Verify the exception message never reached HTTP response layer
             assert True
@@ -106,7 +105,7 @@ async def test_secure_exception_handler_directly():
     Test the handler function directly with a mock request.
     Verifies it returns the correct response format.
     """
-    from unittest.mock import MagicMock
+
     from fastapi import Request
 
     # Create a mock request
@@ -125,6 +124,7 @@ async def test_secure_exception_handler_directly():
     assert response.status_code == 500
 
     import json
+
     body = json.loads(response.body)
     assert body["detail"] == "Internal server error. Reference logged."
     assert "sensitive" not in response.body.decode()
@@ -138,5 +138,6 @@ def test_main_app_has_exception_handler():
     OWASP API7: All unhandled exceptions must be caught centrally.
     """
     from app.main import app
+
     # Verify exception handlers are registered
     assert len(app.exception_handlers) > 0

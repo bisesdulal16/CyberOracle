@@ -153,6 +153,7 @@ async def ai_query(
         # Log full error detail server-side only — never expose to client
         # repr(e) may contain connection strings or internal hostnames
         import logging as _logging
+
         _logging.getLogger("cyberoracle").error(
             f"Model call failed [{request_id}]: {type(e).__name__}: {e}"
         )

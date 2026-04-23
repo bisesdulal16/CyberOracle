@@ -223,6 +223,7 @@ def test_pdf_extraction_failure_returns_422(client, auth_headers, monkeypatch):
     PDF extraction failure must return 422 with a safe error message.
     Internal exception details must not be exposed (NCFR6).
     """
+
     def _boom(_content):
         raise ValueError("parse failed")
 

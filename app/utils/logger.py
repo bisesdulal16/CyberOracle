@@ -39,22 +39,19 @@ logger.addHandler(handler)
 SENSITIVE_PATTERNS = {
     # Passwords in any format: password=abc, "password": "abc", password: abc
     "password": r"(?i)password['\"]?\s*[:=]\s*['\"]?[^\s,'\"\}&]+",
-
     # Bearer tokens and JWT values
     "token": r"(?i)(bearer\s+|token['\"]?\s*[:=]\s*['\"]?)[A-Za-z0-9\-_\.]+",
-
     # API keys in any format
     "api_key": r"(?i)api[_-]?key['\"]?\s*[:=]\s*['\"]?[^\s,'\"\}&]+",
-
     # US Social Security Numbers
     "ssn": r"\b\d{3}-\d{2}-\d{4}\b",
-
     # Credit card numbers (major card types)
-    "credit_card": r"\b(?:4[0-9]{12}(?:[0-9]{3})?|5[1-5][0-9]{14}|3[47][0-9]{13}|6(?:011|5[0-9]{2})[0-9]{12})\b",
-
+    "credit_card": (
+        r"\b(?:4[0-9]{12}(?:[0-9]{3})?|5[1-5][0-9]{14}"
+        r"|3[47][0-9]{13}|6(?:011|5[0-9]{2})[0-9]{12})\b"
+    ),
     # Email addresses
     "email": r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}",
-
     # Authorization headers
     "authorization": r"(?i)authorization['\"]?\s*[:=]\s*['\"]?[^\s,'\"\}&]+",
 }
@@ -136,13 +133,15 @@ def compute_log_hash(
     str
         64-character hex SHA-256 digest
     """
-    raw = "|".join([
-        str(endpoint or ""),
-        str(method or ""),
-        str(status_code or ""),
-        str(message or ""),
-        str(event_type or ""),
-    ])
+    raw = "|".join(
+        [
+            str(endpoint or ""),
+            str(method or ""),
+            str(status_code or ""),
+            str(message or ""),
+            str(event_type or ""),
+        ]
+    )
     return hashlib.sha256(raw.encode("utf-8")).hexdigest()
 
 

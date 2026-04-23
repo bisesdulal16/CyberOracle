@@ -140,7 +140,9 @@ def test_ai_query_model_error_returns_502(client, auth_headers, monkeypatch):
     assert "RuntimeError" not in data["detail"]
     assert "model backend is down" not in data["detail"]
     # Must be a safe generic message
-    assert "unavailable" in data["detail"].lower() or "try again" in data["detail"].lower()
+    assert (
+        "unavailable" in data["detail"].lower() or "try again" in data["detail"].lower()
+    )
 
 
 def test_ai_query_blocks_on_output_dlp(client, auth_headers, monkeypatch):

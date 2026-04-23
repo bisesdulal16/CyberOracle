@@ -145,13 +145,14 @@ async def sanitize_document(
     except Exception as exc:
         # Log full detail server-side, return safe message to client
         import logging as _logging
+
         _logging.getLogger("cyberoracle").error(
             f"Document extraction failed for {filename}: {type(exc).__name__}: {exc}"
         )
         raise HTTPException(
             status_code=422,
             detail="Could not extract text from this file. "
-                   "Ensure it is a valid, unprotected PDF or DOCX.",
+            "Ensure it is a valid, unprotected PDF or DOCX.",
         )
 
     if not raw_text.strip():

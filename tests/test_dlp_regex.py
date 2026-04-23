@@ -16,6 +16,7 @@ import re
 # SSN tests
 # ---------------------------------------------------------------------------
 
+
 def test_scan_text_detects_ssn():
     """Standard SSN format XXX-XX-XXXX must be detected."""
     text = "My SSN is 123-45-6789."
@@ -35,6 +36,7 @@ def test_scan_text_ssn_not_in_output():
 # ---------------------------------------------------------------------------
 # Credit card tests
 # ---------------------------------------------------------------------------
+
 
 def test_scan_text_detects_visa():
     """Visa card number must be detected and redacted."""
@@ -65,6 +67,7 @@ def test_scan_text_detects_amex():
 # Email tests
 # ---------------------------------------------------------------------------
 
+
 def test_scan_text_detects_email():
     """Standard email addresses must be detected."""
     text = "Send to hello@example.com"
@@ -85,6 +88,7 @@ def test_scan_text_detects_university_email():
 # ---------------------------------------------------------------------------
 # API key tests
 # ---------------------------------------------------------------------------
+
 
 def test_scan_text_detects_api_key_format():
     """API key in key=value format must be detected."""
@@ -112,6 +116,7 @@ def test_scan_text_detects_sk_prefix_key():
 # No detection tests
 # ---------------------------------------------------------------------------
 
+
 def test_scan_text_no_detection():
     """Safe text must pass through unchanged."""
     text = "Hello world, this is a normal sentence."
@@ -138,6 +143,7 @@ def test_scan_text_plain_long_word_not_flagged():
 # Multiple entities
 # ---------------------------------------------------------------------------
 
+
 def test_scan_text_detects_multiple_entities():
     """Multiple sensitive entities in one string must all be detected."""
     text = "SSN: 123-45-6789, email: user@test.com, card: 4111111111111111"
@@ -153,6 +159,7 @@ def test_scan_text_detects_multiple_entities():
 # ---------------------------------------------------------------------------
 # Pattern existence test
 # ---------------------------------------------------------------------------
+
 
 def test_all_required_patterns_exist():
     """All required DLP patterns must be defined."""
