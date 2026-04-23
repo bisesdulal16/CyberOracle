@@ -77,7 +77,11 @@ async def ai_query(
     for entity_type in middleware_entities:
         if entity_type not in seen_types:
             input_findings.append(
-                DlpFinding(type=entity_type, count=1, severity=_severity_for_entity(entity_type))
+                DlpFinding(
+                    type=entity_type,
+                    count=1,
+                    severity=_severity_for_entity(entity_type),
+                )
             )
     if middleware_entities:
         input_decision = dlp_engine.decide(input_findings)
