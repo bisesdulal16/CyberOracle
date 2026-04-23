@@ -8,10 +8,11 @@ that does not require bcrypt verification, making tests portable
 across CI environments with different bcrypt versions.
 OWASP API4: Unrestricted Resource Consumption
 """
+
 import pytest
 from fastapi.testclient import TestClient
 from app.main import app
-from app.middleware.rate_limiter import requests_log, EXEMPT_PATHS
+from app.middleware.rate_limiter import requests_log
 
 client = TestClient(app)
 
@@ -31,6 +32,7 @@ def test_rate_limit_allows_requests_within_limit():
     OWASP API4: Confirms legitimate traffic is not blocked.
     """
     from app.auth.jwt_utils import create_access_token
+
     token = create_access_token({"sub": "test", "role": "admin"})
     headers = {"Authorization": f"Bearer {token}"}
 
@@ -47,6 +49,7 @@ def test_rate_limit_blocks_on_exceeded():
     OWASP API4: Confirms DoS and brute-force mitigation is active.
     """
     from app.auth.jwt_utils import create_access_token
+
     token = create_access_token({"sub": "test", "role": "admin"})
     headers = {"Authorization": f"Bearer {token}"}
 
@@ -63,6 +66,7 @@ def test_rate_limit_response_contains_detail():
     429 response must include a human-readable detail message.
     """
     from app.auth.jwt_utils import create_access_token
+
     token = create_access_token({"sub": "test", "role": "admin"})
     headers = {"Authorization": f"Bearer {token}"}
 
@@ -81,6 +85,7 @@ def test_rate_limit_tracks_per_ip():
     After exhausting the limit, the bucket key should exist in requests_log.
     """
     from app.auth.jwt_utils import create_access_token
+
     token = create_access_token({"sub": "test", "role": "admin"})
     headers = {"Authorization": f"Bearer {token}"}
 
