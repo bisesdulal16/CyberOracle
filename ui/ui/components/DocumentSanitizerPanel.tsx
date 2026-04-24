@@ -4,7 +4,16 @@ import React, { useRef, useState } from 'react';
 import { apiFetch } from '../lib/auth';
 import { CloudArrowUpIcon, ArrowDownTrayIcon, ArrowPathIcon } from '@heroicons/react/24/outline';
 
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:8000';
+// Fixed: use the same env var as the rest of the app
+const API_BASE = process.env.NEXT_PUBLIC_API_BASE ?? 'http://localhost:8003';
+
+const ALLOWED_EXTENSIONS = ['.pdf', '.docx'];
+const ALLOWED_MIME_TYPES = [
+  'application/pdf',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+];
+const MAX_FILE_SIZE_MB = 10;
+const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024;
 
 type Finding = {
   type: string;
@@ -25,6 +34,35 @@ function Spinner({ className }: { className?: string }) {
   return <ArrowPathIcon className={`animate-spin text-cyan-400 ${className ?? 'w-5 h-5'}`} />;
 }
 
+/**
+ * Validates the selected file before uploading.
+ * Checks extension, MIME type, and file size client-side
+ * so the user gets instant feedback without a round trip.
+ */
+function validateFile(file: File): string | null {
+  const nameParts = file.name.split('.');
+  const ext = nameParts.length > 1 ? '.' + nameParts.pop()!.toLowerCase() : '';
+
+  if (!ext || !ALLOWED_EXTENSIONS.includes(ext)) {
+    return `Unsupported file type "${ext || 'unknown'}". Please upload a PDF or DOCX file.`;
+  }
+
+  if (file.type && !ALLOWED_MIME_TYPES.includes(file.type)) {
+    return `Invalid file format. Expected a PDF or DOCX but received "${file.type}".`;
+  }
+
+  if (file.size === 0) {
+    return 'The selected file is empty.';
+  }
+
+  if (file.size > MAX_FILE_SIZE_BYTES) {
+    const sizeMB = (file.size / (1024 * 1024)).toFixed(1);
+    return `File is too large (${sizeMB} MB). Maximum allowed size is ${MAX_FILE_SIZE_MB} MB.`;
+  }
+
+  return null; // valid
+}
+
 export default function DocumentSanitizerPanel() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -34,14 +72,40 @@ export default function DocumentSanitizerPanel() {
 
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0] ?? null;
-    setSelectedFile(file);
     setResult(null);
-    setErrorMessage('');
     setUploadState('idle');
+
+    if (!file) {
+      setSelectedFile(null);
+      setErrorMessage('');
+      return;
+    }
+
+    // Validate immediately on selection for instant feedback
+    const validationError = validateFile(file);
+    if (validationError) {
+      setSelectedFile(null);
+      setErrorMessage(validationError);
+      setUploadState('error');
+      // Reset so the same invalid file can be re-selected after fixing
+      if (fileInputRef.current) fileInputRef.current.value = '';
+      return;
+    }
+
+    setSelectedFile(file);
+    setErrorMessage('');
   }
 
   async function handleScan() {
     if (!selectedFile) return;
+
+    // Re-validate before upload in case something changed
+    const validationError = validateFile(selectedFile);
+    if (validationError) {
+      setErrorMessage(validationError);
+      setUploadState('error');
+      return;
+    }
 
     setUploadState('uploading');
     setResult(null);
@@ -110,7 +174,9 @@ export default function DocumentSanitizerPanel() {
           <p className="text-sm font-medium text-slate-300 mb-1">
             Click to select a file
           </p>
-          <p className="text-xs text-slate-500">PDF or DOCX · Max 10 MB</p>
+          <p className="text-xs text-slate-500">
+            PDF or DOCX · Max {MAX_FILE_SIZE_MB} MB
+          </p>
 
           {selectedFile && (
             <p className="mt-3 text-xs font-semibold text-cyan-400 bg-cyan-400/10 border border-cyan-500/20 inline-block px-3 py-1 rounded-full">
@@ -122,7 +188,7 @@ export default function DocumentSanitizerPanel() {
         <input
           ref={fileInputRef}
           type="file"
-          accept=".pdf,.docx"
+          accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
           className="hidden"
           onChange={handleFileChange}
         />
@@ -144,7 +210,7 @@ export default function DocumentSanitizerPanel() {
             )}
           </button>
 
-          {(selectedFile || result) && (
+          {(selectedFile || result || errorMessage) && (
             <button
               type="button"
               onClick={handleReset}
@@ -157,7 +223,7 @@ export default function DocumentSanitizerPanel() {
       </div>
 
       {/* Error */}
-      {uploadState === 'error' && (
+      {uploadState === 'error' && errorMessage && (
         <div className="mb-6 rounded-lg border border-red-500/20 bg-red-500/10 px-4 py-3 text-xs text-red-400">
           {errorMessage}
         </div>
@@ -177,7 +243,9 @@ export default function DocumentSanitizerPanel() {
             <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 text-center">
               <p className="text-xs text-slate-400 mb-1">Total redactions</p>
               <p
-                className={`text-lg font-semibold ${result.total_redactions > 0 ? 'text-red-400' : 'text-emerald-400'}`}
+                className={`text-lg font-semibold ${
+                  result.total_redactions > 0 ? 'text-red-400' : 'text-emerald-400'
+                }`}
               >
                 {result.total_redactions}
               </p>
@@ -200,7 +268,9 @@ export default function DocumentSanitizerPanel() {
                 <thead>
                   <tr className="text-left text-slate-400 bg-slate-800 border-b border-slate-700">
                     <th className="pb-2 pt-2 px-3 font-medium">Entity type</th>
-                    <th className="pb-2 pt-2 px-3 font-medium text-right">Occurrences</th>
+                    <th className="pb-2 pt-2 px-3 font-medium text-right">
+                      Occurrences
+                    </th>
                   </tr>
                 </thead>
                 <tbody>

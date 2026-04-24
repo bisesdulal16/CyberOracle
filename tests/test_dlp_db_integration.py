@@ -1,27 +1,31 @@
 import pytest
 from httpx import ASGITransport, AsyncClient
 from app.main import app
+from app.auth.jwt_utils import create_access_token
+
+
+def _auth_headers():
+    token = create_access_token({"sub": "testuser", "role": "developer"})
+    return {"Authorization": f"Bearer {token}"}
 
 
 @pytest.mark.asyncio
 async def test_dlp_and_db_flow():
     """
-    Verify end-to-end functionality between the DLP middleware and database logging.
-    This test ensures that:
-      1. Sensitive data (e.g., SSNs) are detected and redacted by the DLP middleware.
-      2. The API successfully processes the POST request.
-      3. The response confirms that data has been redacted before storage or output.
+    Verify end-to-end DLP middleware and database logging.
+    Sensitive data must be redacted before storage.
+    POST /logs/ requires authentication (NCFR3).
     """
-    # Define a test payload containing sensitive data
     payload = {"ssn": "123-45-6789", "endpoint": "/logs/test"}
-
-    # Use ASGITransport to test FastAPI without running an external server
     transport = ASGITransport(app=app)
 
-    # Send POST request to the /logs endpoint using the in-memory app instance
     async with AsyncClient(transport=transport, base_url="http://test") as client:
-        response = await client.post("/logs", json=payload, follow_redirects=True)
+        response = await client.post(
+            "/logs/",
+            json=payload,
+            headers=_auth_headers(),
+            follow_redirects=True,
+        )
 
-    # Validate successful response and proper redaction
     assert response.status_code == 200
     assert ("***" in response.text) or ("<GENERIC_SSN>" in response.text)

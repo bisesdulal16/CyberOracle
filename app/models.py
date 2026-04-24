@@ -55,7 +55,7 @@ class LogEntry(Base):
     # Structured event classification (e.g. "ai_query", "ai_query_blocked", "dlp_alert")
     event_type = Column(String(50), nullable=True, index=True)
 
-    frameworks = Column(String, nullable=True)  # or Column(ARRAY(String))
+    frameworks = Column(String, nullable=True)
 
     decision = Column(String, nullable=True)
 
@@ -70,3 +70,8 @@ class LogEntry(Base):
 
     # DLP policy outcome: "allow", "redact", or "block"
     policy_decision = Column(String(20), nullable=True, index=True)
+
+    # SHA-256 hash of core log fields for tamper-evidence detection.
+    # If any field is modified after storage, this hash will no longer match.
+    # (OWASP-ASVS 9.5: Log integrity protection)
+    integrity_hash = Column(String(64), nullable=True, index=False)

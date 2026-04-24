@@ -54,6 +54,7 @@ import { apiFetch } from '../lib/auth';
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE ?? 'http://localhost:8003';
 const STORAGE_KEY = 'cyberoracle_secure_chat_conversations_v1';
 const RATE_LIMIT_WINDOW_SECONDS = 60;
+const MAX_PROMPT_LENGTH = 8000;
 
 function Spinner({ className }: { className?: string }) {
   return <ArrowPathIcon className={`animate-spin text-cyan-400 ${className ?? 'w-5 h-5'}`} />;
@@ -231,6 +232,13 @@ export default function SecureChatPanel() {
   async function send() {
     if (!prompt.trim() || loading || rateLimited) return;
 
+    // Client-side length validation matching backend Pydantic limit
+    // OWASP API4: Prevents oversized payloads reaching the server
+    if (prompt.length > MAX_PROMPT_LENGTH) {
+      setError(`Message too long. Maximum ${MAX_PROMPT_LENGTH.toLocaleString()} characters.`);
+      return;
+    }
+
     ensureActiveConversationExists();
     setLoading(true);
     setError(null);
@@ -271,7 +279,7 @@ export default function SecureChatPanel() {
       // -------------------------------------------------------
       if (r.status === 429) {
         setRateLimited(true);
-        setPrompt(userText); // restore prompt so user doesn't lose their message
+        setPrompt(userText);
         setError('Rate limit reached. You can send again when the timer expires.');
 
         let seconds = RATE_LIMIT_WINDOW_SECONDS;
@@ -291,8 +299,14 @@ export default function SecureChatPanel() {
       }
 
       if (!r.ok) {
-        const txt = await r.text();
-        throw new Error(`Backend error (${r.status}): ${txt}`);
+        console.error(`Backend error ${r.status}`);
+        if (r.status === 502 || r.status === 503) {
+          throw new Error('AI model is unavailable. Please try again in a moment.');
+        }
+        if (r.status >= 500) {
+          throw new Error('A server error occurred. Please try again.');
+        }
+        throw new Error(`Request failed (${r.status}). Please try again.`);
       }
 
       const data = (await r.json()) as QueryResponse;
@@ -319,8 +333,9 @@ export default function SecureChatPanel() {
           };
         })
       );
-    } catch (e: any) {
-      setError(e?.message ?? 'Request failed');
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : 'Request failed';
+      setError(msg);
       setPrompt(userText);
     } finally {
       setLoading(false);
@@ -377,7 +392,7 @@ export default function SecureChatPanel() {
             <select
               className="bg-slate-800 border border-slate-700 text-slate-100 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-cyan-500/50"
               value="ollama"
-              onChange={() => {}}
+              onChange={() => { }}
             >
               <option value="ollama">Ollama (llama3)</option>
             </select>
@@ -394,7 +409,7 @@ export default function SecureChatPanel() {
         </div>
       </div>
 
-      {/* Rate limit banner — shown across the full panel */}
+      {/* Rate limit banner */}
       {rateLimited && (
         <div className="mb-4 flex items-center gap-3 rounded-lg border border-yellow-500/30 bg-yellow-500/10 px-4 py-3">
           <div className="flex-1">
@@ -404,7 +419,6 @@ export default function SecureChatPanel() {
               <span className="font-bold">{retryAfter}s</span>.
             </p>
           </div>
-          {/* Circular countdown indicator */}
           <div className="shrink-0 h-10 w-10 rounded-full border-2 border-yellow-500/40 flex items-center justify-center">
             <span className="text-xs font-bold text-yellow-400">{retryAfter}</span>
           </div>
@@ -427,23 +441,23 @@ export default function SecureChatPanel() {
             <div className="mt-10 w-full max-w-2xl">
               <div className="flex items-center gap-3 border border-slate-700 rounded-xl bg-slate-900 px-3 py-2">
                 <input
-                  className="flex-1 outline-none text-sm py-2 bg-transparent text-slate-100 placeholder:text-slate-500"
+                  className="flex-1 outline-none text-sm py-2 bg-transparent text-slate-100 placeholder:text-slate-500 disabled:opacity-50 disabled:cursor-not-allowed"
                   placeholder="Type your message here…"
                   value={prompt}
+                  maxLength={MAX_PROMPT_LENGTH}
+                  disabled={rateLimited}
                   onChange={(e) => setPrompt(e.target.value)}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter') send();
                   }}
-                  disabled={rateLimited}
                 />
               </div>
 
               {error && (
-                <div className={`mt-3 rounded-lg border px-3 py-2 text-xs ${
-                  rateLimited
+                <div className={`mt-3 rounded-lg border px-3 py-2 text-xs ${rateLimited
                     ? 'border-yellow-500/20 bg-yellow-500/10 text-yellow-400'
                     : 'border-red-500/20 bg-red-500/10 text-red-400'
-                }`}>
+                  }`}>
                   {error}
                 </div>
               )}
@@ -520,21 +534,19 @@ export default function SecureChatPanel() {
             {/* Bottom input */}
             <div className="bg-slate-900 border-t border-slate-800 p-4">
               {error && (
-                <div className={`mb-3 rounded-lg border px-3 py-2 text-xs ${
-                  rateLimited
+                <div className={`mb-3 rounded-lg border px-3 py-2 text-xs ${rateLimited
                     ? 'border-yellow-500/20 bg-yellow-500/10 text-yellow-400'
                     : 'border-red-500/20 bg-red-500/10 text-red-400'
-                }`}>
+                  }`}>
                   {error}
                 </div>
               )}
 
               <div className="mx-auto max-w-4xl flex items-end gap-3">
-                <div className={`flex-1 border rounded-xl px-3 py-2 ${
-                  rateLimited
+                <div className={`flex-1 border rounded-xl px-3 py-2 ${rateLimited
                     ? 'border-yellow-500/30 bg-slate-800/50'
                     : 'border-slate-700 bg-slate-800'
-                }`}>
+                  }`}>
                   <div className="flex items-start gap-2">
                     <textarea
                       value={prompt}
@@ -542,9 +554,17 @@ export default function SecureChatPanel() {
                       onKeyDown={onKeyDown}
                       rows={2}
                       disabled={rateLimited}
+                      maxLength={MAX_PROMPT_LENGTH}
                       className="flex-1 outline-none resize-none text-sm bg-transparent text-slate-100 placeholder:text-slate-500 disabled:opacity-50 disabled:cursor-not-allowed"
                       placeholder={rateLimited ? `Rate limited — wait ${retryAfter}s…` : 'Type your message here…'}
                     />
+                    {/* Character counter — appears when approaching limit */}
+                    {prompt.length > 7000 && (
+                      <span className={`text-[10px] self-end shrink-0 ${prompt.length > 7500 ? 'text-red-400' : 'text-yellow-400'
+                        }`}>
+                        {prompt.length}/{MAX_PROMPT_LENGTH}
+                      </span>
+                    )}
                   </div>
                 </div>
 
