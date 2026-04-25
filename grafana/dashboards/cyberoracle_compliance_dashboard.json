@@ -1,52 +1,33 @@
 {
   "id": null,
-  "uid": "cyberoracle-compliance",
-  "title": "CyberOracle Compliance Dashboard",
-  "tags": [
-    "cyberoracle",
-    "compliance",
-    "audit"
-  ],
-  "timezone": "",
-  "schemaVersion": 36,
-  "version": 1,
+  "uid": "compliance-monitor",
+  "title": "CyberOracle Compliance Monitor & ISCM",
+  "tags": ["compliance", "audit", "hipaa", "ferpa", "security", "iscm"],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 2,
   "refresh": "30s",
-  "style": "dark",
   "time": {
-    "from": "now-7d",
+    "from": "now-24h",
     "to": "now"
   },
-  "timepicker": {
-    "refresh_intervals": [
-      "5s",
-      "10s",
-      "30s",
-      "1m",
-      "5m"
-    ],
-    "time_options": [
-      "1h",
-      "6h",
-      "12h",
-      "24h",
-      "7d",
-      "30d"
-    ]
-  },
   "templating": {
-    "list": []
+    "list": [
+      {
+        "type": "interval",
+        "name": "__interval",
+        "label": "Interval",
+        "query": "30s,1m,5m,15m,1h",
+        "current": {"text": "5m", "value": "5m"}
+      }
+    ]
   },
   "panels": [
     {
       "id": 1,
-      "title": "AU-2 Audit Events: Total logs (7d)",
       "type": "stat",
-      "gridPos": {
-        "h": 4,
-        "w": 4,
-        "x": 0,
-        "y": 0
-      },
+      "title": "Total Requests (24h)",
+      "gridPos": {"x": 0, "y": 0, "w": 6, "h": 4},
       "datasource": {
         "type": "postgres",
         "uid": "cyberoracle"
@@ -54,59 +35,26 @@
       "targets": [
         {
           "refId": "A",
+          "datasource": {"type": "postgres", "uid": "cyberoracle"},
           "format": "table",
-          "rawSql": "SELECT count(*) AS total FROM logs WHERE $__timeFilter(created_at);",
-          "datasource": {
-            "type": "postgres",
-            "uid": "cyberoracle"
-          }
+          "rawSql": "SELECT COUNT(*)::bigint AS value FROM logs WHERE created_at >= NOW() - INTERVAL '24 hours';"
         }
       ],
       "options": {
-        "reduceOptions": {
-          "values": false,
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": ""
-        },
-        "orientation": "auto",
-        "textMode": "auto",
+        "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false},
         "colorMode": "value",
-        "graphMode": "none",
+        "graphMode": "area",
         "justifyMode": "auto"
       },
       "fieldConfig": {
-        "defaults": {
-          "unit": "none",
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              },
-              {
-                "color": "red",
-                "value": 1
-              }
-            ]
-          }
-        },
-        "overrides": []
+        "defaults": {"unit": "short", "color": {"mode": "thresholds"}}
       }
     },
     {
       "id": 2,
-      "title": "AU-6 Audit Review: Error logs (>=400)",
       "type": "stat",
-      "gridPos": {
-        "h": 4,
-        "w": 4,
-        "x": 4,
-        "y": 0
-      },
+      "title": "Blocked Requests (24h)",
+      "gridPos": {"x": 6, "y": 0, "w": 6, "h": 4},
       "datasource": {
         "type": "postgres",
         "uid": "cyberoracle"
@@ -114,59 +62,25 @@
       "targets": [
         {
           "refId": "A",
-          "format": "table",
-          "rawSql": "SELECT count(*) AS errors FROM logs WHERE $__timeFilter(created_at) AND status_code >= 400;",
-          "datasource": {
-            "type": "postgres",
-            "uid": "cyberoracle"
-          }
+          "datasource": {"type": "postgres", "uid": "cyberoracle"},
+          "rawSql": "SELECT COUNT(*)::bigint AS value FROM logs WHERE policy_decision = 'block' AND created_at >= NOW() - INTERVAL '24 hours';"
         }
       ],
       "options": {
-        "reduceOptions": {
-          "values": false,
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": ""
-        },
-        "orientation": "auto",
-        "textMode": "auto",
+        "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false},
         "colorMode": "value",
-        "graphMode": "none",
+        "graphMode": "area",
         "justifyMode": "auto"
       },
       "fieldConfig": {
-        "defaults": {
-          "unit": "none",
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              },
-              {
-                "color": "red",
-                "value": 1
-              }
-            ]
-          }
-        },
-        "overrides": []
+        "defaults": {"unit": "short", "color": {"mode": "thresholds"}}
       }
     },
     {
       "id": 3,
-      "title": "AC-7 Unsuccessful logons: 401/403",
       "type": "stat",
-      "gridPos": {
-        "h": 4,
-        "w": 4,
-        "x": 8,
-        "y": 0
-      },
+      "title": "Redacted Requests (24h)",
+      "gridPos": {"x": 12, "y": 0, "w": 6, "h": 4},
       "datasource": {
         "type": "postgres",
         "uid": "cyberoracle"
@@ -174,59 +88,25 @@
       "targets": [
         {
           "refId": "A",
-          "format": "table",
-          "rawSql": "SELECT count(*) AS auth_failures FROM logs WHERE $__timeFilter(created_at) AND status_code IN (401,403);",
-          "datasource": {
-            "type": "postgres",
-            "uid": "cyberoracle"
-          }
+          "datasource": {"type": "postgres", "uid": "cyberoracle"},
+          "rawSql": "SELECT COUNT(*)::bigint AS value FROM logs WHERE policy_decision = 'redact' AND created_at >= NOW() - INTERVAL '24 hours';"
         }
       ],
       "options": {
-        "reduceOptions": {
-          "values": false,
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": ""
-        },
-        "orientation": "auto",
-        "textMode": "auto",
+        "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false},
         "colorMode": "value",
-        "graphMode": "none",
+        "graphMode": "area",
         "justifyMode": "auto"
       },
       "fieldConfig": {
-        "defaults": {
-          "unit": "none",
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              },
-              {
-                "color": "red",
-                "value": 1
-              }
-            ]
-          }
-        },
-        "overrides": []
+        "defaults": {"unit": "short", "color": {"mode": "thresholds"}}
       }
     },
     {
       "id": 4,
-      "title": "SI-4 Monitoring: Rate limited (429)",
       "type": "stat",
-      "gridPos": {
-        "h": 4,
-        "w": 4,
-        "x": 12,
-        "y": 0
-      },
+      "title": "High Severity Events (24h)",
+      "gridPos": {"x": 18, "y": 0, "w": 6, "h": 4},
       "datasource": {
         "type": "postgres",
         "uid": "cyberoracle"
@@ -234,59 +114,25 @@
       "targets": [
         {
           "refId": "A",
-          "format": "table",
-          "rawSql": "SELECT count(*) AS rate_limited FROM logs WHERE $__timeFilter(created_at) AND status_code = 429;",
-          "datasource": {
-            "type": "postgres",
-            "uid": "cyberoracle"
-          }
+          "datasource": {"type": "postgres", "uid": "cyberoracle"},
+          "rawSql": "SELECT COUNT(*)::bigint AS value FROM logs WHERE severity = 'high' AND created_at >= NOW() - INTERVAL '24 hours';"
         }
       ],
       "options": {
-        "reduceOptions": {
-          "values": false,
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": ""
-        },
-        "orientation": "auto",
-        "textMode": "auto",
+        "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false},
         "colorMode": "value",
-        "graphMode": "none",
+        "graphMode": "area",
         "justifyMode": "auto"
       },
       "fieldConfig": {
-        "defaults": {
-          "unit": "none",
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              },
-              {
-                "color": "red",
-                "value": 1
-              }
-            ]
-          }
-        },
-        "overrides": []
+        "defaults": {"unit": "short", "color": {"mode": "thresholds"}}
       }
     },
     {
       "id": 5,
-      "title": "DLP events (endpoint contains 'dlp')",
       "type": "stat",
-      "gridPos": {
-        "h": 4,
-        "w": 4,
-        "x": 16,
-        "y": 0
-      },
+      "title": "HIPAA-Related Events (24h)",
+      "gridPos": {"x": 0, "y": 4, "w": 6, "h": 4},
       "datasource": {
         "type": "postgres",
         "uid": "cyberoracle"
@@ -294,59 +140,25 @@
       "targets": [
         {
           "refId": "A",
-          "format": "table",
-          "rawSql": "SELECT count(*) AS dlp_events FROM logs WHERE $__timeFilter(created_at) AND (endpoint ILIKE '%dlp%' OR message ILIKE '%DLP%');",
-          "datasource": {
-            "type": "postgres",
-            "uid": "cyberoracle"
-          }
+          "datasource": {"type": "postgres", "uid": "cyberoracle"},
+          "rawSql": "SELECT COUNT(*)::bigint AS value FROM logs WHERE frameworks LIKE '%HIPAA%' AND created_at >= NOW() - INTERVAL '24 hours';"
         }
       ],
       "options": {
-        "reduceOptions": {
-          "values": false,
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": ""
-        },
-        "orientation": "auto",
-        "textMode": "auto",
+        "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false},
         "colorMode": "value",
-        "graphMode": "none",
+        "graphMode": "area",
         "justifyMode": "auto"
       },
       "fieldConfig": {
-        "defaults": {
-          "unit": "none",
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              },
-              {
-                "color": "red",
-                "value": 1
-              }
-            ]
-          }
-        },
-        "overrides": []
+        "defaults": {"unit": "short", "color": {"mode": "thresholds"}}
       }
     },
     {
       "id": 6,
-      "title": "OWASP ASVS 9.x Masking applied (***MASKED***)",
       "type": "stat",
-      "gridPos": {
-        "h": 4,
-        "w": 4,
-        "x": 20,
-        "y": 0
-      },
+      "title": "FERPA-Related Events (24h)",
+      "gridPos": {"x": 6, "y": 4, "w": 6, "h": 4},
       "datasource": {
         "type": "postgres",
         "uid": "cyberoracle"
@@ -354,59 +166,25 @@
       "targets": [
         {
           "refId": "A",
-          "format": "table",
-          "rawSql": "SELECT count(*) AS masked_logs FROM logs WHERE $__timeFilter(created_at) AND message LIKE '%***MASKED***%';",
-          "datasource": {
-            "type": "postgres",
-            "uid": "cyberoracle"
-          }
+          "datasource": {"type": "postgres", "uid": "cyberoracle"},
+          "rawSql": "SELECT COUNT(*)::bigint AS value FROM logs WHERE frameworks LIKE '%FERPA%' AND created_at >= NOW() - INTERVAL '24 hours';"
         }
       ],
       "options": {
-        "reduceOptions": {
-          "values": false,
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": ""
-        },
-        "orientation": "auto",
-        "textMode": "auto",
+        "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false},
         "colorMode": "value",
-        "graphMode": "none",
+        "graphMode": "area",
         "justifyMode": "auto"
       },
       "fieldConfig": {
-        "defaults": {
-          "unit": "none",
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              },
-              {
-                "color": "red",
-                "value": 1
-              }
-            ]
-          }
-        },
-        "overrides": []
+        "defaults": {"unit": "short", "color": {"mode": "thresholds"}}
       }
     },
     {
       "id": 7,
-      "title": "Audit log volume over time",
-      "type": "timeseries",
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 0,
-        "y": 4
-      },
+      "type": "piechart",
+      "title": "Policy Decisions Distribution",
+      "gridPos": {"x": 12, "y": 4, "w": 6, "h": 4},
       "datasource": {
         "type": "postgres",
         "uid": "cyberoracle"
@@ -414,38 +192,23 @@
       "targets": [
         {
           "refId": "A",
-          "format": "time_series",
-          "rawSql": "SELECT $__timeGroupAlias(created_at, '5m'), count(*) AS count FROM logs WHERE $__timeFilter(created_at) GROUP BY 1 ORDER BY 1;",
-          "datasource": {
-            "type": "postgres",
-            "uid": "cyberoracle"
-          }
+          "datasource": {"type": "postgres", "uid": "cyberoracle"},
+          "rawSql": "SELECT policy_decision AS label, COUNT(*)::bigint AS value FROM logs WHERE created_at >= NOW() - INTERVAL '24 hours' GROUP BY policy_decision;"
         }
       ],
       "options": {
-        "legend": {
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": true
-        }
+        "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false},
+        "legend": {"displayMode": "list", "placement": "bottom", "showLegend": true}
       },
       "fieldConfig": {
-        "defaults": {
-          "unit": "short"
-        },
-        "overrides": []
+        "defaults": {}
       }
     },
     {
       "id": 8,
-      "title": "Error volume over time (>=400)",
       "type": "timeseries",
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 12,
-        "y": 4
-      },
+      "title": "Policy Decisions Over Time",
+      "gridPos": {"x": 18, "y": 4, "w": 6, "h": 4},
       "datasource": {
         "type": "postgres",
         "uid": "cyberoracle"
@@ -453,38 +216,22 @@
       "targets": [
         {
           "refId": "A",
-          "format": "time_series",
-          "rawSql": "SELECT $__timeGroupAlias(created_at, '5m'), count(*) AS count FROM logs WHERE $__timeFilter(created_at) AND status_code >= 400 GROUP BY 1 ORDER BY 1;",
-          "datasource": {
-            "type": "postgres",
-            "uid": "cyberoracle"
-          }
+          "datasource": {"type": "postgres", "uid": "cyberoracle"},
+          "rawSql": "SELECT date_trunc('minute', created_at) AS time, COUNT(*)::bigint AS value FROM logs WHERE policy_decision IN ('allow', 'redact', 'block') AND created_at >= NOW() - INTERVAL '24 hours' GROUP BY 1 ORDER BY 1;"
         }
       ],
       "options": {
-        "legend": {
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": true
-        }
+        "legend": {"displayMode": "list", "placement": "bottom", "showLegend": true}
       },
       "fieldConfig": {
-        "defaults": {
-          "unit": "short"
-        },
-        "overrides": []
+        "defaults": {"unit": "short"}
       }
     },
     {
       "id": 9,
-      "title": "Top endpoints by volume (7d)",
-      "type": "table",
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 0,
-        "y": 12
-      },
+      "type": "timeseries",
+      "title": "HIPAA Events Over Time",
+      "gridPos": {"x": 0, "y": 8, "w": 8, "h": 6},
       "datasource": {
         "type": "postgres",
         "uid": "cyberoracle"
@@ -492,32 +239,22 @@
       "targets": [
         {
           "refId": "A",
-          "format": "table",
-          "rawSql": "SELECT endpoint, count(*) AS count FROM logs WHERE $__timeFilter(created_at) GROUP BY endpoint ORDER BY count DESC LIMIT 10;",
-          "datasource": {
-            "type": "postgres",
-            "uid": "cyberoracle"
-          }
+          "datasource": {"type": "postgres", "uid": "cyberoracle"},
+          "rawSql": "SELECT date_trunc('minute', created_at) AS time, COUNT(*)::bigint AS value FROM logs WHERE frameworks LIKE '%HIPAA%' AND created_at >= NOW() - INTERVAL '24 hours' GROUP BY 1 ORDER BY 1;"
         }
       ],
       "options": {
-        "showHeader": true
+        "legend": {"displayMode": "list", "placement": "bottom", "showLegend": true}
       },
       "fieldConfig": {
-        "defaults": {},
-        "overrides": []
+        "defaults": {"unit": "short", "color": {"mode": "palette-classic"}}
       }
     },
     {
       "id": 10,
-      "title": "Top status codes (7d)",
-      "type": "table",
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 12,
-        "y": 12
-      },
+      "type": "timeseries",
+      "title": "FERPA Events Over Time",
+      "gridPos": {"x": 8, "y": 8, "w": 8, "h": 6},
       "datasource": {
         "type": "postgres",
         "uid": "cyberoracle"
@@ -525,37 +262,172 @@
       "targets": [
         {
           "refId": "A",
-          "format": "table",
-          "rawSql": "SELECT status_code, count(*) AS count FROM logs WHERE $__timeFilter(created_at) GROUP BY status_code ORDER BY count DESC;",
-          "datasource": {
-            "type": "postgres",
-            "uid": "cyberoracle"
-          }
+          "datasource": {"type": "postgres", "uid": "cyberoracle"},
+          "rawSql": "SELECT date_trunc('minute', created_at) AS time, COUNT(*)::bigint AS value FROM logs WHERE frameworks LIKE '%FERPA%' AND created_at >= NOW() - INTERVAL '24 hours' GROUP BY 1 ORDER BY 1;"
         }
       ],
       "options": {
-        "showHeader": true
+        "legend": {"displayMode": "list", "placement": "bottom", "showLegend": true}
       },
       "fieldConfig": {
-        "defaults": {},
-        "overrides": []
+        "defaults": {"unit": "short", "color": {"mode": "palette-classic"}}
       }
     },
     {
       "id": 11,
-      "title": "Control mapping notes",
-      "type": "text",
-      "gridPos": {
-        "h": 5,
-        "w": 24,
-        "x": 0,
-        "y": 20
+      "type": "timeseries",
+      "title": "High Severity Events Over Time",
+      "gridPos": {"x": 16, "y": 8, "w": 8, "h": 6},
+      "datasource": {
+        "type": "postgres",
+        "uid": "cyberoracle"
       },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {"type": "postgres", "uid": "cyberoracle"},
+          "rawSql": "SELECT date_trunc('minute', created_at) AS time, COUNT(*)::bigint AS value FROM logs WHERE severity = 'high' AND created_at >= NOW() - INTERVAL '24 hours' GROUP BY 1 ORDER BY 1;"
+        }
+      ],
+      "options": {
+        "legend": {"displayMode": "list", "placement": "bottom", "showLegend": true}
+      },
+      "fieldConfig": {
+        "defaults": {"unit": "short", "color": {"mode": "thresholds"}}
+      }
+    },
+    {
+      "id": 12,
+      "type": "table",
+      "title": "Top Endpoints by Request Volume",
+      "gridPos": {"x": 0, "y": 14, "w": 12, "h": 6},
+      "datasource": {
+        "type": "postgres",
+        "uid": "cyberoracle"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {"type": "postgres", "uid": "cyberoracle"},
+          "rawSql": "SELECT endpoint, COUNT(*)::bigint AS requests, COUNT(DISTINCT CASE WHEN policy_decision = 'block' THEN id END)::bigint AS blocked, COUNT(DISTINCT CASE WHEN policy_decision = 'redact' THEN id END)::bigint AS redacted FROM logs WHERE created_at >= NOW() - INTERVAL '24 hours' GROUP BY endpoint ORDER BY requests DESC LIMIT 10;"
+        }
+      ],
+      "options": {
+        "showHeader": true,
+        "sortBy": [{"disp": "requests", "desc": true}]
+      },
+      "fieldConfig": {
+        "defaults": {}
+      }
+    },
+    {
+      "id": 13,
+      "type": "table",
+      "title": "Recent High Severity Events",
+      "gridPos": {"x": 12, "y": 14, "w": 12, "h": 6},
+      "datasource": {
+        "type": "postgres",
+        "uid": "cyberoracle"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {"type": "postgres", "uid": "cyberoracle"},
+          "rawSql": "SELECT id, endpoint, severity, policy_decision, risk_score, created_at FROM logs WHERE severity = 'high' AND created_at >= NOW() - INTERVAL '24 hours' ORDER BY created_at DESC LIMIT 15;"
+        }
+      ],
+      "options": {
+        "showHeader": true,
+        "sortBy": [{"disp": "created_at", "desc": true}]
+      },
+      "fieldConfig": {
+        "defaults": {}
+      }
+    },
+    {
+      "id": 14,
+      "type": "timeseries",
+      "title": "Log Volume Over Time (All Events)",
+      "gridPos": {"x": 0, "y": 20, "w": 12, "h": 6},
+      "datasource": {
+        "type": "postgres",
+        "uid": "cyberoracle"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {"type": "postgres", "uid": "cyberoracle"},
+          "rawSql": "SELECT date_trunc('minute', created_at) AS time, COUNT(*)::bigint AS value FROM logs WHERE created_at >= NOW() - INTERVAL '24 hours' GROUP BY 1 ORDER BY 1;"
+        }
+      ],
+      "options": {
+        "legend": {"displayMode": "list", "placement": "bottom", "showLegend": true}
+      },
+      "fieldConfig": {
+        "defaults": {"unit": "short"}
+      }
+    },
+    {
+      "id": 15,
+      "type": "stat",
+      "title": "Total Alerts Triggered (24h)",
+      "gridPos": {"x": 12, "y": 20, "w": 6, "h": 4},
+      "datasource": {
+        "type": "postgres",
+        "uid": "cyberoracle"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {"type": "postgres", "uid": "cyberoracle"},
+          "rawSql": "SELECT COUNT(*)::bigint AS value FROM logs WHERE (severity = 'high' OR risk_score >= 0.7) AND created_at >= NOW() - INTERVAL '24 hours';"
+        }
+      ],
+      "options": {
+        "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false},
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {"unit": "short", "color": {"mode": "thresholds"}}
+      }
+    },
+    {
+      "id": 16,
+      "type": "stat",
+      "title": "Log Volume (Last 24h)",
+      "gridPos": {"x": 18, "y": 20, "w": 6, "h": 4},
+      "datasource": {
+        "type": "postgres",
+        "uid": "cyberoracle"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {"type": "postgres", "uid": "cyberoracle"},
+          "rawSql": "SELECT COUNT(*)::bigint AS value FROM logs WHERE created_at >= NOW() - INTERVAL '24 hours';"
+        }
+      ],
+      "options": {
+        "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false},
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "center"
+      },
+      "fieldConfig": {
+        "defaults": {"unit": "short", "color": {"mode": "thresholds"}}
+      }
+    },
+    {
+      "id": 17,
+      "type": "text",
+      "title": "ISCM View - InfoSec Continuous Monitoring",
+      "gridPos": {"x": 0, "y": 24, "w": 24, "h": 6},
       "options": {
         "mode": "markdown",
-        "content": "### How to read this dashboard\n- **NIST 800-53 AU-2 / AU-3:** shows audit events are being collected and timestamped.\n- **NIST 800-53 AU-6:** shows visibility into errors for audit review.\n- **NIST 800-53 AC-7:** counts unsuccessful logon events **if** your systems ingest 401/403 events into `/logs/ingest`.\n- **NIST 800-53 SI-4:** highlights monitoring signals (e.g., 429 rate-limits).\n- **OWASP ASVS 9.x:** checks that sensitive fields are masked before storage.\n\n**Important:** This is *evidence of controls* (telemetry + auditability). It is not a formal compliance attestation by itself.\n"
-      },
-      "transparent": true
+        "content": "## ISCM: InfoSec Continuous Monitoring View\n\n**Definition**: ISCM provides real-time, automated monitoring of security controls and compliance posture through continuous data collection, analysis, and alerting.\n\n### Continuously Monitored Metrics\n\n| Metric | Panel ID | Monitoring Purpose |\n|--------|----------|-----|\n| Request Volume | Panel 1, 16 | Baseline traffic monitoring |\n| Security Actions | Panels 2, 3 | DLP blocking/redacting activity |\n| HIPAA Events | Panels 5, 9 | PHI detection and protection |\n| FERPA Events | Panels 6, 10 | Educational record protection |\n| High Severity | Panels 4, 11 | Incident detection |\n| Alerts | Panel 15 | Trigger count from security events |\n| Event Timeline | Panel 8 | Temporal security analysis |\n| Log Volume | Panel 14 | System activity overview |\n| Endpoint Analysis | Panel 12 | Attack surface visibility |\n| Incident Details | Panel 13 | Forensic investigation support |\n\n### ISCM Principles Demonstrated\n\n1. **Continuous**: 30-second refresh interval ensures real-time visibility\n2. **Automated**: PostgreSQL queries run automatically via Grafana provisioning\n3. **Integrated**: Single dashboard combining compliance + security monitoring\n4. **Actionable**: Alert counts and high-severity event tables enable response\n5. **Auditable**: All queries source from persistent logs table with timestamps\n\n### NIST SP 800-137 Compliance\n\n| ISCM Requirement | Dashboard Evidence |\n|----------------|-------------------|\n| Continuous security monitoring | All panels show real-time metrics |\n| Security control assessment | Policy decisions, HIPAA/FERPA panels |\n| Security impact analysis | High severity events over time |\n| System state monitoring | Log volume, endpoint activity |\n\n**Data Source**: PostgreSQL `logs` table\n**Refresh Rate**: 30 seconds\n**Time Range**: Adjustable (1h, 6h, 12h, 24h, 7d, 30d)\n\n*This ISCM dashboard demonstrates continuous monitoring capabilities for senior design evaluation.*"
+      }
     }
   ]
 }
