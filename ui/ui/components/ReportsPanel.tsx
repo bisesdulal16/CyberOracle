@@ -61,13 +61,22 @@ function Spinner({ className }: { className?: string }) {
 function todayStr() {
   return new Date().toISOString().slice(0, 10);
 }
+
 function sevenDaysAgoStr() {
   const d = new Date();
   d.setDate(d.getDate() - 7);
   return d.toISOString().slice(0, 10);
 }
 
-function decisionColor(d: string) {
+// Validate YYYY-MM-DD format strictly
+// OWASP API3: Prevents injection via malformed date parameters
+function isValidDate(dateStr: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return false;
+  const d = new Date(dateStr);
+  return d instanceof Date && !isNaN(d.getTime());
+}
+
+function decisionColor(d: string): string {
   const v = d.toLowerCase();
   if (v === 'block') return 'bg-red-400/10 text-red-400';
   if (v === 'redact') return 'bg-amber-400/10 text-amber-400';
@@ -151,12 +160,26 @@ function SummaryTab() {
   const [endDate, setEndDate] = useState(todayStr());
   const [report, setReport] = useState<ReportData | null>(null);
   const [loading, setLoading] = useState(false);
-  const [fetchError, setFetchError] = useState(false);
+  const [fetchError, setFetchError] = useState('');
   const [hasGenerated, setHasGenerated] = useState(false);
 
   async function generateReport() {
+    setFetchError('');
+
+    if (!isValidDate(startDate)) {
+      setFetchError('Invalid start date. Use YYYY-MM-DD format.');
+      return;
+    }
+    if (!isValidDate(endDate)) {
+      setFetchError('Invalid end date. Use YYYY-MM-DD format.');
+      return;
+    }
+    if (new Date(startDate) > new Date(endDate)) {
+      setFetchError('Start date must be before end date.');
+      return;
+    }
+
     setLoading(true);
-    setFetchError(false);
     try {
       const params = new URLSearchParams({ start_date: startDate, end_date: endDate });
       const res = await apiFetch(`${API_BASE}/api/reports/summary?${params}`);
@@ -165,7 +188,7 @@ function SummaryTab() {
       setReport(data);
       setHasGenerated(true);
     } catch {
-      setFetchError(true);
+      setFetchError('Backend unavailable — start the CyberOracle backend to generate reports.');
       setReport(null);
     } finally {
       setLoading(false);
@@ -176,7 +199,6 @@ function SummaryTab() {
 
   return (
     <div className="space-y-5">
-      {/* Date range picker */}
       <div className="bg-slate-900 border border-slate-800 rounded-xl p-5">
         <h2 className="text-sm font-semibold text-slate-200 mb-4">Select date range</h2>
         <div className="flex flex-wrap items-end gap-4">
@@ -208,8 +230,8 @@ function SummaryTab() {
       </div>
 
       {fetchError && (
-        <div className="rounded-lg border border-amber-500/20 bg-amber-400/5 px-4 py-3 text-xs text-amber-400">
-          Backend unavailable — start the CyberOracle backend to generate reports.
+        <div className="rounded-lg border border-red-500/20 bg-red-500/10 px-4 py-3 text-xs text-red-400">
+          {fetchError}
         </div>
       )}
 
@@ -243,6 +265,7 @@ function SummaryTab() {
                 <BarRow label="Low" value={report.severity.low} total={total} colorClass="bg-blue-400" />
               </div>
             </div>
+
             <div className="bg-slate-900 border border-slate-800 rounded-xl p-5">
               <h2 className="text-sm font-semibold text-slate-200 mb-4">Policy decisions</h2>
               {report.decision_breakdown.length === 0 ? (
@@ -257,7 +280,13 @@ function SummaryTab() {
                       <div className="flex items-center gap-3">
                         <div className="w-32 h-2 rounded-full bg-slate-700 overflow-hidden">
                           <div
-                            className={`h-full rounded-full ${row.decision === 'block' ? 'bg-red-400' : row.decision === 'redact' ? 'bg-amber-400' : 'bg-emerald-400'}`}
+                            className={`h-full rounded-full ${
+                              row.decision === 'block'
+                                ? 'bg-red-400'
+                                : row.decision === 'redact'
+                                  ? 'bg-amber-400'
+                                  : 'bg-emerald-400'
+                            }`}
                             style={{ width: total > 0 ? `${Math.round((row.count / total) * 100)}%` : '0%' }}
                           />
                         </div>
@@ -283,6 +312,7 @@ function SummaryTab() {
                 </div>
               )}
             </div>
+
             <div className="bg-slate-900 border border-slate-800 rounded-xl p-5">
               <h2 className="text-sm font-semibold text-slate-200 mb-4">Top endpoints</h2>
               {report.top_endpoints.length === 0 ? (
@@ -335,7 +365,6 @@ function ThreatAnalysisTab() {
 
   return (
     <div className="space-y-5">
-      {/* Controls */}
       <div className="bg-slate-900 border border-slate-800 rounded-xl p-5">
         <h2 className="text-sm font-semibold text-slate-200 mb-1">Threat Analysis</h2>
         <p className="text-xs text-slate-400 mb-4">
@@ -382,7 +411,6 @@ function ThreatAnalysisTab() {
 
       {report && (
         <>
-          {/* Status banner */}
           <div className={`rounded-xl border px-5 py-4 flex items-start gap-3 ${
             report.status === 'CLEAN'
               ? 'border-emerald-500/20 bg-emerald-400/5'
@@ -406,7 +434,6 @@ function ThreatAnalysisTab() {
             </div>
           </div>
 
-          {/* Finding cards */}
           {report.findings.length > 0 && (
             <div className="space-y-3">
               {report.findings.map((finding, idx) => {
@@ -525,7 +552,6 @@ function DbAuditTab() {
 
       {audit && (
         <>
-          {/* Top-level stats */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <StatCard label="Total Log Entries" value={audit.total_log_entries} />
             <StatCard label="High Severity" value={audit.severity_breakdown.high} color="text-red-400" />
@@ -534,7 +560,6 @@ function DbAuditTab() {
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            {/* Policy decisions 24h */}
             <div className="bg-slate-900 border border-slate-800 rounded-xl p-5">
               <h3 className="text-sm font-semibold text-slate-200 mb-4">Policy Decisions (24h)</h3>
               <div className="space-y-3">
@@ -553,7 +578,6 @@ function DbAuditTab() {
               </div>
             </div>
 
-            {/* DB security status */}
             <div className="bg-slate-900 border border-slate-800 rounded-xl p-5">
               <h3 className="text-sm font-semibold text-slate-200 mb-4">Database Security</h3>
               <div className="space-y-3">
@@ -587,7 +611,6 @@ function DbAuditTab() {
             </div>
           </div>
 
-          {/* Severity breakdown bar */}
           <div className="bg-slate-900 border border-slate-800 rounded-xl p-5">
             <h3 className="text-sm font-semibold text-slate-200 mb-4">All-Time Severity Breakdown</h3>
             <div className="space-y-3">
@@ -628,7 +651,6 @@ const ReportsPanel: React.FC = () => {
 
   return (
     <div className="mt-4 space-y-5">
-      {/* Header */}
       <div>
         <h1 className="text-2xl font-semibold text-slate-100">Reports</h1>
         <p className="text-sm text-slate-400 mt-0.5">
@@ -636,7 +658,6 @@ const ReportsPanel: React.FC = () => {
         </p>
       </div>
 
-      {/* Tab bar */}
       <div className="flex gap-1 border-b border-slate-800">
         {TABS.map(({ id, label, icon: Icon }) => (
           <button
@@ -654,7 +675,6 @@ const ReportsPanel: React.FC = () => {
         ))}
       </div>
 
-      {/* Tab content */}
       {tab === 'summary' && <SummaryTab />}
       {tab === 'threats' && <ThreatAnalysisTab />}
       {tab === 'db-audit' && <DbAuditTab />}

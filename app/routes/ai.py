@@ -1,5 +1,6 @@
 # app/routes/ai.py
 
+import os
 import time
 import uuid
 from typing import List
@@ -7,13 +8,27 @@ from typing import List
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from pydantic import BaseModel, Field
 
-from app.auth.rbac import require_roles
 from app.services.ollama_client import OllamaClient
 from app.services import dlp_engine
 from app.services.dlp_engine import DlpFinding, PolicyDecision, _severity_for_entity
 from app.utils.logger import log_request, mask_sensitive
 
+# RBAC permission enforcement
+from app.auth.rbac import require_permission
+
+from app.middleware.api_key_auth import verify_api_key
+
 router = APIRouter()
+
+# ---------------------------------------------------------------------------
+# Model selection
+# ---------------------------------------------------------------------------
+# Override via OLLAMA_MODEL env var, e.g:
+#   OLLAMA_MODEL=llama3:latest        (full model, GPU recommended)
+#   OLLAMA_MODEL=llama3.2:1b          (fast, CPU-friendly)
+#   OLLAMA_MODEL=llama3.2:3b          (balanced)
+# Defaults to llama3.2:1b for CPU performance when no GPU is available.
+OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "llama3.2:1b")
 
 
 class AIQueryRequest(BaseModel):
@@ -40,11 +55,12 @@ async def ai_query_options_slash():
     return Response(status_code=200)
 
 
+# RBAC: only users with test_api_endpoints permission may access the AI gateway
 @router.post("/ai/query", response_model=AIQueryResponse)
 async def ai_query(
     req: AIQueryRequest,
     request: Request,
-    _user: dict = Depends(require_roles("admin", "developer")),
+    _user: dict = Depends(require_permission("test_api_endpoints")),
 ):
     """
     Secure AI Gateway endpoint (MVP: Ollama-only)
@@ -62,8 +78,8 @@ async def ai_query(
     request_id = str(uuid.uuid4())
     client_ip = request.client.host if request.client else None
 
-    # ✅ MVP: Force Ollama model tag (avoid client sending "openai" etc.)
-    model = "llama3:latest"
+    # Use env-configured model (defaults to llama3.2:1b for CPU performance)
+    model = OLLAMA_MODEL
 
     # ------------------------------------------------------------------
     # 1) INPUT DLP
@@ -149,14 +165,22 @@ async def ai_query(
     except Exception as e:
         latency_ms = int((time.time() - start) * 1000)
 
-        # log failure too (masked)
+        # Log full error detail server-side only — never expose to client
+        # repr(e) may contain connection strings or internal hostnames
+        import logging as _logging
+
+        _logging.getLogger("cyberoracle").error(
+            f"Model call failed [{request_id}]: {type(e).__name__}: {e}"
+        )
+
         masked_log = mask_sensitive(
             str(
                 {
                     "event": "ai_query_model_error",
                     "request_id": request_id,
                     "model": model,
-                    "error": repr(e),
+                    # Log exception type only, not full repr
+                    "error_type": type(e).__name__,
                     "client_ip": client_ip,
                 }
             )
@@ -171,7 +195,11 @@ async def ai_query(
             source="ai_route",
         )
 
-        raise HTTPException(status_code=502, detail=repr(e))
+        # Return generic message — never expose repr(e) to client
+        raise HTTPException(
+            status_code=502,
+            detail="AI model is currently unavailable. Please try again.",
+        )
 
     # ------------------------------------------------------------------
     # 3) OUTPUT DLP (Output Filter)
@@ -210,7 +238,7 @@ async def ai_query(
         "event": "ai_query",
         "request_id": request_id,
         "model": model,
-        "input_preview": req.prompt[:200],
+        "input_preview": input_redacted_text[:200],
         "output_preview": raw_output[:200],
         "policy_decision": output_decision.decision.value,
         "risk_score": combined_risk,
@@ -256,3 +284,17 @@ async def ai_query(
         },
         meta={"latency_ms": latency_ms},
     )
+
+
+@router.post("/ai/query/apikey", response_model=AIQueryResponse)
+async def ai_query_apikey(
+    req: AIQueryRequest,
+    request: Request,
+    _user: dict = Depends(verify_api_key),
+):
+    """
+    AI Gateway endpoint authenticated via X-API-Key header.
+    Identical DLP pipeline to /ai/query but for machine-to-machine access.
+    OWASP API2: Separate endpoint makes API key usage explicit and auditable.
+    """
+    return await ai_query(req, request, _user)

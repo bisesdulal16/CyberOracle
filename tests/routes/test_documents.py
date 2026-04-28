@@ -1,9 +1,5 @@
 """
 Smoke tests for POST /api/documents/sanitize
-
-These tests mount only the documents router so no DB or Presidio is needed.
-File parsing (pdfplumber / python-docx) is monkeypatched in the DLP test so
-the suite runs without the optional extraction libraries installed.
 """
 
 import pytest
@@ -16,18 +12,8 @@ from app.routes.documents import _count_findings
 from app.auth.jwt_utils import create_access_token
 
 
-# ---------------------------------------------------------------------------
-# Fixtures
-# ---------------------------------------------------------------------------
-
-
 @pytest.fixture
 def client():
-    """Minimal FastAPI app mounting only the documents router.
-
-    log_request is patched out so the suite needs no DB connection —
-    consistent with the module docstring: 'no DB or Presidio is needed'.
-    """
     application = FastAPI()
     application.include_router(doc_module.router)
     with patch.object(doc_module, "log_request", new=AsyncMock()):
@@ -38,11 +24,6 @@ def client():
 def auth_headers():
     token = create_access_token({"sub": "test", "role": "admin"})
     return {"Authorization": f"Bearer {token}"}
-
-
-# ---------------------------------------------------------------------------
-# Unit tests — _count_findings (no HTTP, no file parsing)
-# ---------------------------------------------------------------------------
 
 
 def test_count_findings_detects_ssn():
@@ -70,11 +51,6 @@ def test_count_findings_multiple_types():
     assert "EMAIL" in types
 
 
-# ---------------------------------------------------------------------------
-# Integration tests — HTTP endpoint
-# ---------------------------------------------------------------------------
-
-
 def test_rejects_unsupported_extension(client, auth_headers):
     """Plain text files must be rejected with 400."""
     response = client.post(
@@ -88,7 +64,7 @@ def test_rejects_unsupported_extension(client, auth_headers):
 
 def test_rejects_oversized_file(client, auth_headers):
     """Files over 10 MB must be rejected with 413."""
-    oversized = b"x" * (11 * 1024 * 1024)  # 11 MB
+    oversized = b"x" * (11 * 1024 * 1024)
     response = client.post(
         "/api/documents/sanitize",
         files={
@@ -104,17 +80,11 @@ def test_rejects_oversized_file(client, auth_headers):
 
 
 def test_sanitizes_docx_with_pii(client, auth_headers, monkeypatch):
-    """
-    DOCX with PII should return redacted text and non-zero findings.
-    The DOCX extraction is monkeypatched to return a known string so
-    this test runs without python-docx installed.
-    """
     pii_text = (
         "Patient John Doe, SSN 123-45-6789, "
         "email john.doe@hospital.org, "
         "card 4111 1111 1111 1111."
     )
-
     monkeypatch.setattr(doc_module, "_extract_text_docx", lambda _content: pii_text)
 
     response = client.post(
@@ -135,12 +105,10 @@ def test_sanitizes_docx_with_pii(client, auth_headers, monkeypatch):
     assert data["file_type"] == "DOCX"
     assert data["total_redactions"] > 0
     assert len(data["findings"]) > 0
-    # Redacted text should not contain the original SSN
     assert "123-45-6789" not in data["redacted_text"]
 
 
 def test_empty_document_returns_422(client, auth_headers, monkeypatch):
-    """A DOCX with no extractable text should return 422."""
     monkeypatch.setattr(doc_module, "_extract_text_docx", lambda _content: "   ")
 
     response = client.post(
@@ -154,12 +122,10 @@ def test_empty_document_returns_422(client, auth_headers, monkeypatch):
         },
         headers=auth_headers,
     )
-
     assert response.status_code == 422
 
 
 def test_clean_document_returns_zero_redactions(client, auth_headers, monkeypatch):
-    """A document with no PII should return total_redactions = 0."""
     monkeypatch.setattr(
         doc_module,
         "_extract_text_docx",
@@ -253,6 +219,11 @@ def test_sanitizes_pdf_with_pii(client, auth_headers, monkeypatch):
 
 
 def test_pdf_extraction_failure_returns_422(client, auth_headers, monkeypatch):
+    """
+    PDF extraction failure must return 422 with a safe error message.
+    Internal exception details must not be exposed (NCFR6).
+    """
+
     def _boom(_content):
         raise ValueError("parse failed")
 
@@ -265,4 +236,6 @@ def test_pdf_extraction_failure_returns_422(client, auth_headers, monkeypatch):
     )
 
     assert response.status_code == 422
-    assert "Could not extract text from the file" in response.json()["detail"]
+    # NCFR6: Safe message — internal ValueError detail not exposed
+    assert "Could not extract text" in response.json()["detail"]
+    assert "parse failed" not in response.json()["detail"]

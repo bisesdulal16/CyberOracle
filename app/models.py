@@ -3,6 +3,33 @@ from datetime import datetime
 from app.db.db import Base
 
 
+# ADDED MODEL
+# -------------------------------
+# Represents an authenticated platform user.
+# This table supports login authentication and RBAC role assignment.
+class User(Base):
+    __tablename__ = "users"
+
+    # Unique user identifier
+    id = Column(Integer, primary_key=True, index=True)
+
+    # Username used during authentication
+    username = Column(String(100), unique=True, nullable=False, index=True)
+
+    # Hashed password (bcrypt or argon2)
+    password_hash = Column(String(255), nullable=False)
+
+    # RBAC role used by the authorization system
+    # Example roles:
+    #   admin
+    #   developer
+    #   auditor
+    role = Column(String(50), nullable=False, default="developer")
+
+    # Timestamp when the user account was created
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+
 # Represents a single log entry in the database
 class LogEntry(Base):
     __tablename__ = "logs"  # Table name in PostgreSQL
@@ -28,7 +55,7 @@ class LogEntry(Base):
     # Structured event classification (e.g. "ai_query", "ai_query_blocked", "dlp_alert")
     event_type = Column(String(50), nullable=True, index=True)
 
-    frameworks = Column(String, nullable=True)  # or Column(ARRAY(String))
+    frameworks = Column(String, nullable=True)
 
     decision = Column(String, nullable=True)
 
@@ -43,3 +70,8 @@ class LogEntry(Base):
 
     # DLP policy outcome: "allow", "redact", or "block"
     policy_decision = Column(String(20), nullable=True, index=True)
+
+    # SHA-256 hash of core log fields for tamper-evidence detection.
+    # If any field is modified after storage, this hash will no longer match.
+    # (OWASP-ASVS 9.5: Log integrity protection)
+    integrity_hash = Column(String(64), nullable=True, index=False)

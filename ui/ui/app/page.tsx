@@ -10,14 +10,12 @@ import type { ReactNode } from 'react';
 export default function HomePage() {
   return (
     <div className="min-h-screen bg-slate-950">
-      {/* NAV */}
       <header className="mx-auto flex w-full max-w-6xl items-center justify-between px-6 py-5">
         <div className="flex items-center gap-2">
           <ShieldCheckIcon className="w-4 h-4 text-cyan-400" />
           <div className="text-xs font-semibold text-cyan-400">CyberOracle</div>
           <div className="text-xs font-medium text-slate-500">Secure AI Gateway</div>
         </div>
-
         <div className="flex items-center gap-2">
           <Link
             href="/login"
@@ -28,24 +26,20 @@ export default function HomePage() {
         </div>
       </header>
 
-      {/* HERO */}
       <main className="mx-auto w-full max-w-6xl px-6 pb-14 pt-10">
         <div className="grid gap-8 lg:grid-cols-2 lg:items-center">
           <div>
             <p className="inline-flex items-center rounded-full border border-slate-800 bg-slate-800 px-3 py-1 text-[11px] font-medium text-slate-400">
               AI activity monitoring · DLP · Audit logging · Compliance
             </p>
-
             <h1 className="mt-4 text-3xl font-semibold leading-tight text-slate-100 sm:text-4xl">
               Secure your AI apps with visibility and guardrails.
             </h1>
-
             <p className="mt-3 max-w-xl text-sm text-slate-400">
               CyberOracle is a secure AI gateway that detects prompt injection,
               prevents data exfiltration, redacts sensitive output, and produces
               audit-ready compliance reports.
             </p>
-
             <div className="mt-6 flex flex-wrap items-center gap-3">
               <Link
                 href="/login"
@@ -54,19 +48,14 @@ export default function HomePage() {
                 Log in
               </Link>
             </div>
-
             <p className="mt-4 text-[11px] text-slate-500">
               By using CyberOracle, you acknowledge security monitoring and
               logging of AI activity.
             </p>
           </div>
 
-          {/* FEATURES */}
           <div className="rounded-2xl border border-slate-800 bg-slate-900 p-6">
-            <h2 className="text-sm font-semibold text-slate-200">
-              Platform highlights
-            </h2>
-
+            <h2 className="text-sm font-semibold text-slate-200">Platform highlights</h2>
             <div className="mt-4 grid gap-3 sm:grid-cols-2">
               <Feature
                 icon={<ShieldCheckIcon className="w-4 h-4 text-cyan-400" />}
