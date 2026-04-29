@@ -25,6 +25,7 @@ router = APIRouter()
 # ---------------------------------------------------------------------------
 OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "llama3.2:1b")
 
+
 # ---------------------------------------------------------------------------
 # Available models catalogue — only expose providers whose key is configured
 # ---------------------------------------------------------------------------
@@ -40,7 +41,11 @@ def _available_models() -> List[dict]:
         models += [
             {"id": "openai:gpt-4o", "label": "GPT-4o", "provider": "openai"},
             {"id": "openai:gpt-4o-mini", "label": "GPT-4o Mini", "provider": "openai"},
-            {"id": "openai:gpt-3.5-turbo", "label": "GPT-3.5 Turbo", "provider": "openai"},
+            {
+                "id": "openai:gpt-3.5-turbo",
+                "label": "GPT-3.5 Turbo",
+                "provider": "openai",
+            },
         ]
     if os.getenv("ANTHROPIC_API_KEY"):
         models += [
@@ -232,6 +237,7 @@ async def ai_query(
         # Log full error detail server-side only — never expose to client
         # repr(e) may contain connection strings or internal hostnames
         import logging as _logging
+
         _logging.getLogger("cyberoracle").error(
             f"Model call failed [{request_id}]: {type(e).__name__}: {e}"
         )

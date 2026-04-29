@@ -5,7 +5,7 @@ Tests for DoD DevSecOps Monitor Phase additions:
   - app.services.log_promoter.promote_logs
 """
 
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, patch
 
 import pytest
 from fastapi import FastAPI
@@ -80,12 +80,12 @@ def test_iscm_status_returns_200(monkeypatch):
     """ISCM status endpoint returns 200 with all expected top-level keys."""
     fake_results = [
         _ScalarResult(100),  # total_all
-        _ScalarResult(80),   # total_allowed
-        _ScalarResult(0),    # high_risk_1h
-        _ScalarResult(0),    # blocked_1h
-        _ScalarResult(90),   # total_with_hash
-        _ScalarResult(10),   # total_24h
-        _ScalarResult(2),    # promotions_24h
+        _ScalarResult(80),  # total_allowed
+        _ScalarResult(0),  # high_risk_1h
+        _ScalarResult(0),  # blocked_1h
+        _ScalarResult(90),  # total_with_hash
+        _ScalarResult(10),  # total_24h
+        _ScalarResult(2),  # promotions_24h
     ]
     monkeypatch.setattr(
         metrics_module,
@@ -111,12 +111,12 @@ def test_iscm_status_healthy(monkeypatch):
     """Reports 'healthy' when compliance is high and no threats."""
     fake_results = [
         _ScalarResult(100),  # total
-        _ScalarResult(95),   # allowed (95% = high compliance)
-        _ScalarResult(0),    # high_risk_1h
-        _ScalarResult(0),    # blocked_1h
+        _ScalarResult(95),  # allowed (95% = high compliance)
+        _ScalarResult(0),  # high_risk_1h
+        _ScalarResult(0),  # blocked_1h
         _ScalarResult(100),  # integrity_hashed
-        _ScalarResult(50),   # 24h requests
-        _ScalarResult(1),    # promotions
+        _ScalarResult(50),  # 24h requests
+        _ScalarResult(1),  # promotions
     ]
     monkeypatch.setattr(
         metrics_module,
@@ -137,8 +137,8 @@ def test_iscm_status_degraded_on_high_threats(monkeypatch):
     """Reports 'degraded' when high-risk events exceed threshold."""
     fake_results = [
         _ScalarResult(100),
-        _ScalarResult(30),   # low compliance
-        _ScalarResult(15),   # high_risk_1h >= 10 → threat level high
+        _ScalarResult(30),  # low compliance
+        _ScalarResult(15),  # high_risk_1h >= 10 → threat level high
         _ScalarResult(1),
         _ScalarResult(50),
         _ScalarResult(20),
@@ -162,8 +162,8 @@ def test_iscm_status_warning_medium_threats(monkeypatch):
     """Reports 'warning' when threat level is medium."""
     fake_results = [
         _ScalarResult(100),
-        _ScalarResult(82),   # 82% compliance (>= 0.8)
-        _ScalarResult(4),    # high_risk_1h in [3,9] → medium
+        _ScalarResult(82),  # 82% compliance (>= 0.8)
+        _ScalarResult(4),  # high_risk_1h in [3,9] → medium
         _ScalarResult(1),
         _ScalarResult(80),
         _ScalarResult(10),
@@ -205,7 +205,9 @@ def test_iscm_status_no_data(monkeypatch):
     assert resp.status_code == 200
     data = resp.json()
     assert data["compliance"]["score"] == 0.0
-    assert data["log_integrity"]["coverage"] == 1.0  # 0/0 → 1.0 (full coverage vacuously)
+    assert (
+        data["log_integrity"]["coverage"] == 1.0
+    )  # 0/0 → 1.0 (full coverage vacuously)
     assert data["threat_indicators"]["level"] == "none"
 
 
@@ -222,7 +224,9 @@ def test_iscm_status_requires_auth():
 def test_promote_logs_endpoint_no_entries():
     """Returns 200 with promoted_count=0 when no high-risk entries exist."""
     client = _build_client()
-    with patch("app.services.log_promoter.promote_logs", new_callable=AsyncMock) as mock_promote:
+    with patch(
+        "app.services.log_promoter.promote_logs", new_callable=AsyncMock
+    ) as mock_promote:
         mock_promote.return_value = []
         resp = client.post("/api/logs/promote?window_hours=24", headers=_auth_headers())
 
@@ -246,7 +250,9 @@ def test_promote_logs_endpoint_with_entries():
         "created_at": "2026-04-01T12:00:00Z",
     }
     client = _build_client()
-    with patch("app.services.log_promoter.promote_logs", new_callable=AsyncMock) as mock_promote:
+    with patch(
+        "app.services.log_promoter.promote_logs", new_callable=AsyncMock
+    ) as mock_promote:
         mock_promote.return_value = [fake_entry]
         resp = client.post("/api/logs/promote?window_hours=12", headers=_auth_headers())
 
@@ -300,9 +306,11 @@ async def test_promote_logs_sends_alerts_and_audit():
 
     session = _FakeSession([_ScalarsResult([FakeEntry()])])
 
-    with patch.object(promoter_module, "AsyncSessionLocal", return_value=session), \
-         patch.object(promoter_module, "send_alert") as mock_alert, \
-         patch.object(promoter_module, "log_request", new_callable=AsyncMock) as mock_log:
+    with patch.object(
+        promoter_module, "AsyncSessionLocal", return_value=session
+    ), patch.object(promoter_module, "send_alert") as mock_alert, patch.object(
+        promoter_module, "log_request", new_callable=AsyncMock
+    ) as mock_log:
         result = await promoter_module.promote_logs(window_hours=24)
 
     assert len(result) == 1
@@ -331,9 +339,11 @@ async def test_promote_logs_deduplicates_entries():
 
     session = _FakeSession([_ScalarsResult([FakeEntry(), FakeEntry()])])
 
-    with patch.object(promoter_module, "AsyncSessionLocal", return_value=session), \
-         patch.object(promoter_module, "send_alert") as mock_alert, \
-         patch.object(promoter_module, "log_request", new_callable=AsyncMock):
+    with patch.object(
+        promoter_module, "AsyncSessionLocal", return_value=session
+    ), patch.object(promoter_module, "send_alert") as mock_alert, patch.object(
+        promoter_module, "log_request", new_callable=AsyncMock
+    ):
         result = await promoter_module.promote_logs(window_hours=24)
 
     assert len(result) == 1

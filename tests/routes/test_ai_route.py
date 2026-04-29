@@ -169,7 +169,10 @@ def test_ai_query_blocks_on_output_dlp(client, auth_headers, monkeypatch):
     monkeypatch.setattr(ai_module.dlp_engine, "decide", fake_decide)
 
     async def fake_route_one(prompt, model, user):
-        return {"answer": "this will trigger-output-block in DLP", "model_used": "ollama:test"}
+        return {
+            "answer": "this will trigger-output-block in DLP",
+            "model_used": "ollama:test",
+        }
 
     monkeypatch.setattr(ai_module.model_router, "route_one", fake_route_one)
 
@@ -220,7 +223,10 @@ def test_ai_query_redacts_output_dlp(client, auth_headers, monkeypatch):
     monkeypatch.setattr(ai_module.dlp_engine, "redact_text", fake_redact_text)
 
     async def fake_route_one(prompt, model, user):
-        return {"answer": "this will trigger-output-redact in DLP", "model_used": "ollama:test"}
+        return {
+            "answer": "this will trigger-output-redact in DLP",
+            "model_used": "ollama:test",
+        }
 
     monkeypatch.setattr(ai_module.model_router, "route_one", fake_route_one)
 

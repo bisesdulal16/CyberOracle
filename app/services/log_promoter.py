@@ -24,7 +24,9 @@ PROMOTION_RISK_THRESHOLD = 0.7
 PROMOTION_WINDOW_HOURS = 24
 
 
-async def promote_logs(window_hours: int = PROMOTION_WINDOW_HOURS) -> list[dict[str, Any]]:
+async def promote_logs(
+    window_hours: int = PROMOTION_WINDOW_HOURS,
+) -> list[dict[str, Any]]:
     """
     Query high-risk log entries from the past window and promote them.
 
@@ -67,7 +69,9 @@ async def promote_logs(window_hours: int = PROMOTION_WINDOW_HOURS) -> list[dict[
             "risk_score": entry.risk_score,
             "source": entry.source,
             "endpoint": entry.endpoint,
-            "created_at": entry.created_at.isoformat() + "Z" if entry.created_at else None,
+            "created_at": (
+                entry.created_at.isoformat() + "Z" if entry.created_at else None
+            ),
         }
         promoted.append(summary)
 
