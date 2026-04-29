@@ -42,19 +42,40 @@ type ChatMessage = {
 type Conversation = {
   id: string;
   title: string;
-  model: 'ollama';
+  modelId: string;
   hideSensitive: boolean;
   createdAt: string;
   updatedAt: string;
   messages: ChatMessage[];
 };
 
+type ModelOption = {
+  id: string;
+  label: string;
+  provider: string;
+};
+
+// Provider badge colours
+const PROVIDER_COLOURS: Record<string, string> = {
+  ollama: 'text-cyan-400',
+  openai: 'text-green-400',
+  anthropic: 'text-purple-400',
+  gemini: 'text-yellow-400',
+  groq: 'text-orange-400',
+};
+
 import { apiFetch } from '../lib/auth';
 
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE ?? 'http://localhost:8003';
-const STORAGE_KEY = 'cyberoracle_secure_chat_conversations_v1';
+const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:8001';
+const STORAGE_KEY = 'cyberoracle_secure_chat_conversations_v2';
 const RATE_LIMIT_WINDOW_SECONDS = 60;
 const MAX_PROMPT_LENGTH = 8000;
+
+const FALLBACK_MODEL: ModelOption = {
+  id: 'ollama:llama3.2:1b',
+  label: 'Ollama (llama3.2:1b)',
+  provider: 'ollama',
+};
 
 function Spinner({ className }: { className?: string }) {
   return <ArrowPathIcon className={`animate-spin text-cyan-400 ${className ?? 'w-5 h-5'}`} />;
@@ -88,12 +109,12 @@ function makeTitleFromFirstUserMessage(messages: ChatMessage[]) {
   return t.length > 32 ? t.slice(0, 32) + '…' : t;
 }
 
-function createEmptyConversation(id?: string): Conversation {
+function createEmptyConversation(id?: string, modelId?: string): Conversation {
   const now = new Date().toISOString();
   return {
     id: id ?? crypto.randomUUID(),
     title: 'New chat',
-    model: 'ollama',
+    modelId: modelId ?? FALLBACK_MODEL.id,
     hideSensitive: true,
     createdAt: now,
     updatedAt: now,
@@ -101,35 +122,66 @@ function createEmptyConversation(id?: string): Conversation {
   };
 }
 
+function providerLabel(provider: string): string {
+  const map: Record<string, string> = {
+    ollama: 'Ollama',
+    openai: 'OpenAI',
+    anthropic: 'Anthropic',
+    gemini: 'Google',
+    groq: 'Groq',
+  };
+  return map[provider] ?? provider;
+}
+
 export default function SecureChatPanel() {
-  const [model] = useState<'ollama'>('ollama');
-  const subtitle = 'Secure AI conversation with Ollama';
+  const [availableModels, setAvailableModels] = useState<ModelOption[]>([FALLBACK_MODEL]);
+  const [selectedModelId, setSelectedModelId] = useState<string>(FALLBACK_MODEL.id);
 
   const [prompt, setPrompt] = useState('');
   const [hideSensitive, setHideSensitive] = useState(true);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Rate limiting state
   const [rateLimited, setRateLimited] = useState(false);
   const [retryAfter, setRetryAfter] = useState(0);
 
-  const [conversations, setConversations] = useState<Conversation[]>(() => [createEmptyConversation()]);
+  const [conversations, setConversations] = useState<Conversation[]>(() => [
+    createEmptyConversation(undefined, FALLBACK_MODEL.id),
+  ]);
   const [activeConvId, setActiveConvId] = useState<string>(() => crypto.randomUUID());
   const [historyOpen, setHistoryOpen] = useState(false);
 
   const scrollRef = useRef<HTMLDivElement | null>(null);
 
+  // Fetch available models from the backend on mount
+  useEffect(() => {
+    apiFetch(`${API_BASE}/ai/models`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (data?.models?.length) {
+          setAvailableModels(data.models as ModelOption[]);
+          setSelectedModelId((prev) => {
+            const stillValid = data.models.some((m: ModelOption) => m.id === prev);
+            return stillValid ? prev : data.models[0].id;
+          });
+        }
+      })
+      .catch(() => {
+        // Keep fallback model list on network error
+      });
+  }, []);
+
   useEffect(() => {
     setConversations((prev) => {
       if (prev.some((c) => c.id === activeConvId)) return prev;
-      return [createEmptyConversation(activeConvId)];
+      return [createEmptyConversation(activeConvId, selectedModelId)];
     });
-  }, [activeConvId]);
+  }, [activeConvId]); // eslint-disable-line
 
-  const activeConversation = useMemo(() => {
-    return conversations.find((c) => c.id === activeConvId) ?? null;
-  }, [conversations, activeConvId]);
+  const activeConversation = useMemo(
+    () => conversations.find((c) => c.id === activeConvId) ?? null,
+    [conversations, activeConvId]
+  );
 
   const messages = activeConversation?.messages ?? [];
 
@@ -141,6 +193,7 @@ export default function SecureChatPanel() {
   const decision: PolicyDecision = lastAssistant?.security?.policy_decision ?? 'allow';
   const risk = lastAssistant?.security?.risk_score ?? 0;
 
+  // Restore conversations from localStorage
   useEffect(() => {
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
@@ -150,13 +203,16 @@ export default function SecureChatPanel() {
           setConversations(parsed);
           setActiveConvId(parsed[0].id);
           setHideSensitive(!!parsed[0].hideSensitive);
+          setSelectedModelId(parsed[0].modelId ?? FALLBACK_MODEL.id);
           return;
         }
       }
     } catch {
       // ignore
     }
-    setConversations((prev) => (prev.length > 0 ? prev : [createEmptyConversation(activeConvId)]));
+    setConversations((prev) =>
+      prev.length > 0 ? prev : [createEmptyConversation(activeConvId, selectedModelId)]
+    );
   }, []); // eslint-disable-line
 
   useEffect(() => {
@@ -193,12 +249,12 @@ export default function SecureChatPanel() {
   function ensureActiveConversationExists() {
     setConversations((prev) => {
       if (prev.some((c) => c.id === activeConvId)) return prev;
-      return [createEmptyConversation(activeConvId), ...prev];
+      return [createEmptyConversation(activeConvId, selectedModelId), ...prev];
     });
   }
 
   function newChat() {
-    const conv = createEmptyConversation();
+    const conv = createEmptyConversation(undefined, selectedModelId);
     conv.hideSensitive = hideSensitive;
     setConversations((prev) => [conv, ...prev]);
     setActiveConvId(conv.id);
@@ -212,6 +268,7 @@ export default function SecureChatPanel() {
     if (!conv) return;
     setActiveConvId(id);
     setHideSensitive(!!conv.hideSensitive);
+    setSelectedModelId(conv.modelId ?? FALLBACK_MODEL.id);
     setHistoryOpen(false);
     setError(null);
   }
@@ -222,18 +279,21 @@ export default function SecureChatPanel() {
       const remaining = conversations.filter((c) => c.id !== id);
       if (remaining.length > 0) setActiveConvId(remaining[0].id);
       else {
-        const fresh = createEmptyConversation();
+        const fresh = createEmptyConversation(undefined, selectedModelId);
         setConversations([fresh]);
         setActiveConvId(fresh.id);
       }
     }
   }
 
+  function handleModelChange(newModelId: string) {
+    setSelectedModelId(newModelId);
+    updateActiveConversation({ modelId: newModelId });
+  }
+
   async function send() {
     if (!prompt.trim() || loading || rateLimited) return;
 
-    // Client-side length validation matching backend Pydantic limit
-    // OWASP API4: Prevents oversized payloads reaching the server
     if (prompt.length > MAX_PROMPT_LENGTH) {
       setError(`Message too long. Maximum ${MAX_PROMPT_LENGTH.toLocaleString()} characters.`);
       return;
@@ -260,6 +320,7 @@ export default function SecureChatPanel() {
         return {
           ...c,
           hideSensitive,
+          modelId: selectedModelId,
           updatedAt: new Date().toISOString(),
           messages: updatedMessages,
           title: makeTitleFromFirstUserMessage(updatedMessages),
@@ -271,12 +332,9 @@ export default function SecureChatPanel() {
       const r = await apiFetch(`${API_BASE}/ai/query`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt: userText, model: 'ollama' }),
+        body: JSON.stringify({ prompt: userText, model: selectedModelId }),
       });
 
-      // -------------------------------------------------------
-      // Handle rate limiting — show countdown, disable send
-      // -------------------------------------------------------
       if (r.status === 429) {
         setRateLimited(true);
         setPrompt(userText);
@@ -327,6 +385,7 @@ export default function SecureChatPanel() {
           return {
             ...c,
             hideSensitive,
+            modelId: selectedModelId,
             updatedAt: new Date().toISOString(),
             messages: updatedMessages,
             title: makeTitleFromFirstUserMessage(updatedMessages),
@@ -349,13 +408,32 @@ export default function SecureChatPanel() {
     }
   }
 
+  const selectedModel =
+    availableModels.find((m) => m.id === selectedModelId) ?? FALLBACK_MODEL;
+
+  // Group models by provider for the dropdown
+  const modelsByProvider = availableModels.reduce<Record<string, ModelOption[]>>(
+    (acc, m) => {
+      if (!acc[m.provider]) acc[m.provider] = [];
+      acc[m.provider].push(m);
+      return acc;
+    },
+    {}
+  );
+
   return (
     <div className="h-full flex flex-col">
       {/* Top bar */}
       <div className="flex items-start justify-between gap-4 mb-6 border-b border-slate-800 pb-4">
         <div>
           <h1 className="text-2xl font-semibold text-slate-100">Secure Chat</h1>
-          <p className="text-sm text-slate-400">{subtitle}</p>
+          <p className="text-sm text-slate-400">
+            <span className={PROVIDER_COLOURS[selectedModel.provider] ?? 'text-slate-400'}>
+              {providerLabel(selectedModel.provider)}
+            </span>
+            {' · '}
+            {selectedModel.label}
+          </p>
         </div>
 
         <div className="flex items-center gap-3">
@@ -386,15 +464,23 @@ export default function SecureChatPanel() {
             </button>
           </div>
 
-          {/* Model select */}
+          {/* Model selector */}
           <div className="flex items-center gap-2">
             <span className="text-xs text-slate-400">Model:</span>
             <select
               className="bg-slate-800 border border-slate-700 text-slate-100 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-cyan-500/50"
-              value="ollama"
-              onChange={() => { }}
+              value={selectedModelId}
+              onChange={(e) => handleModelChange(e.target.value)}
             >
-              <option value="ollama">Ollama (llama3)</option>
+              {Object.entries(modelsByProvider).map(([provider, models]) => (
+                <optgroup key={provider} label={providerLabel(provider)}>
+                  {models.map((m) => (
+                    <option key={m.id} value={m.id}>
+                      {m.label}
+                    </option>
+                  ))}
+                </optgroup>
+              ))}
             </select>
           </div>
 
@@ -427,15 +513,17 @@ export default function SecureChatPanel() {
 
       {/* Main chat area */}
       <div className="flex-1 min-h-0 flex flex-col">
-        {/* Empty state */}
         {messages.length === 0 ? (
           <div className="flex-1 min-h-0 flex flex-col items-center justify-center text-center px-6">
             <div className="text-2xl font-semibold text-slate-100 mb-2">
               Welcome to Secure Chat
             </div>
             <div className="text-sm text-slate-400 max-w-lg">
-              Start a secure conversation with Ollama. CyberOracle scans inputs and outputs
-              for sensitive data before rendering.
+              Start a secure conversation with{' '}
+              <span className={PROVIDER_COLOURS[selectedModel.provider] ?? ''}>
+                {selectedModel.label}
+              </span>
+              . CyberOracle scans inputs and outputs for sensitive data before rendering.
             </div>
 
             <div className="mt-10 w-full max-w-2xl">
@@ -454,10 +542,13 @@ export default function SecureChatPanel() {
               </div>
 
               {error && (
-                <div className={`mt-3 rounded-lg border px-3 py-2 text-xs ${rateLimited
-                    ? 'border-yellow-500/20 bg-yellow-500/10 text-yellow-400'
-                    : 'border-red-500/20 bg-red-500/10 text-red-400'
-                  }`}>
+                <div
+                  className={`mt-3 rounded-lg border px-3 py-2 text-xs ${
+                    rateLimited
+                      ? 'border-yellow-500/20 bg-yellow-500/10 text-yellow-400'
+                      : 'border-red-500/20 bg-red-500/10 text-red-400'
+                  }`}
+                >
                   {error}
                 </div>
               )}
@@ -484,6 +575,15 @@ export default function SecureChatPanel() {
                               <div className="text-sm font-semibold text-slate-200">
                                 Assistant
                               </div>
+                              <div
+                                className={`text-[10px] px-1.5 py-0.5 rounded border ${
+                                  PROVIDER_COLOURS[selectedModel.provider]
+                                    ? `border-current ${PROVIDER_COLOURS[selectedModel.provider]}`
+                                    : 'border-slate-600 text-slate-500'
+                                } opacity-70`}
+                              >
+                                {selectedModel.label}
+                              </div>
                             </div>
                             <div className="text-[11px] text-slate-500">
                               {formatTime(m.timestamp)}
@@ -496,9 +596,15 @@ export default function SecureChatPanel() {
 
                           {m.security?.policy_decision && (
                             <div className="mt-3 text-[11px] text-slate-500">
-                              Policy: <span className="font-semibold text-slate-400">{m.security.policy_decision}</span>
+                              Policy:{' '}
+                              <span className="font-semibold text-slate-400">
+                                {m.security.policy_decision}
+                              </span>
                               {' · '}
-                              Risk: <span className="font-semibold text-slate-400">{(m.security.risk_score ?? 0).toFixed(2)}</span>
+                              Risk:{' '}
+                              <span className="font-semibold text-slate-400">
+                                {(m.security.risk_score ?? 0).toFixed(2)}
+                              </span>
                             </div>
                           )}
                         </div>
@@ -511,15 +617,18 @@ export default function SecureChatPanel() {
                       <div className="max-w-[420px] bg-cyan-500/10 border border-cyan-500/20 rounded-xl p-3">
                         <div className="flex items-center justify-between mb-1">
                           <div className="text-xs font-semibold text-slate-200">You</div>
-                          <div className="text-[11px] text-slate-500">{formatTime(m.timestamp)}</div>
+                          <div className="text-[11px] text-slate-500">
+                            {formatTime(m.timestamp)}
+                          </div>
                         </div>
-                        <div className="text-sm text-slate-100 whitespace-pre-wrap">{shownText}</div>
+                        <div className="text-sm text-slate-100 whitespace-pre-wrap">
+                          {shownText}
+                        </div>
                       </div>
                     </div>
                   );
                 })}
 
-                {/* Loading bubble */}
                 {loading && (
                   <div className="flex justify-start">
                     <div className="bg-slate-800 border border-slate-700 rounded-xl p-4 flex items-center gap-2">
@@ -534,19 +643,25 @@ export default function SecureChatPanel() {
             {/* Bottom input */}
             <div className="bg-slate-900 border-t border-slate-800 p-4">
               {error && (
-                <div className={`mb-3 rounded-lg border px-3 py-2 text-xs ${rateLimited
-                    ? 'border-yellow-500/20 bg-yellow-500/10 text-yellow-400'
-                    : 'border-red-500/20 bg-red-500/10 text-red-400'
-                  }`}>
+                <div
+                  className={`mb-3 rounded-lg border px-3 py-2 text-xs ${
+                    rateLimited
+                      ? 'border-yellow-500/20 bg-yellow-500/10 text-yellow-400'
+                      : 'border-red-500/20 bg-red-500/10 text-red-400'
+                  }`}
+                >
                   {error}
                 </div>
               )}
 
               <div className="mx-auto max-w-4xl flex items-end gap-3">
-                <div className={`flex-1 border rounded-xl px-3 py-2 ${rateLimited
-                    ? 'border-yellow-500/30 bg-slate-800/50'
-                    : 'border-slate-700 bg-slate-800'
-                  }`}>
+                <div
+                  className={`flex-1 border rounded-xl px-3 py-2 ${
+                    rateLimited
+                      ? 'border-yellow-500/30 bg-slate-800/50'
+                      : 'border-slate-700 bg-slate-800'
+                  }`}
+                >
                   <div className="flex items-start gap-2">
                     <textarea
                       value={prompt}
@@ -556,12 +671,18 @@ export default function SecureChatPanel() {
                       disabled={rateLimited}
                       maxLength={MAX_PROMPT_LENGTH}
                       className="flex-1 outline-none resize-none text-sm bg-transparent text-slate-100 placeholder:text-slate-500 disabled:opacity-50 disabled:cursor-not-allowed"
-                      placeholder={rateLimited ? `Rate limited — wait ${retryAfter}s…` : 'Type your message here…'}
+                      placeholder={
+                        rateLimited
+                          ? `Rate limited — wait ${retryAfter}s…`
+                          : 'Type your message here…'
+                      }
                     />
-                    {/* Character counter — appears when approaching limit */}
                     {prompt.length > 7000 && (
-                      <span className={`text-[10px] self-end shrink-0 ${prompt.length > 7500 ? 'text-red-400' : 'text-yellow-400'
-                        }`}>
+                      <span
+                        className={`text-[10px] self-end shrink-0 ${
+                          prompt.length > 7500 ? 'text-red-400' : 'text-yellow-400'
+                        }`}
+                      >
                         {prompt.length}/{MAX_PROMPT_LENGTH}
                       </span>
                     )}
@@ -611,24 +732,46 @@ export default function SecureChatPanel() {
                 <div className="p-6 text-sm text-slate-500">No conversations yet.</div>
               ) : (
                 <div className="divide-y divide-slate-800">
-                  {conversations.map((c) => (
-                    <div key={c.id} className="p-4 flex items-center justify-between gap-3 hover:bg-slate-800 transition">
-                      <button className="flex-1 text-left" onClick={() => loadConversation(c.id)} type="button">
-                        <div className="text-sm font-semibold text-slate-200">{c.title || 'New chat'}</div>
-                        <div className="text-xs text-slate-500 mt-1">
-                          Ollama · {new Date(c.updatedAt).toLocaleString()}
-                        </div>
-                      </button>
-
-                      <button
-                        type="button"
-                        className="text-xs px-3 py-1.5 rounded-lg border border-slate-700 text-slate-400 hover:bg-red-500/10 hover:border-red-500/20 hover:text-red-400 transition"
-                        onClick={() => deleteConversation(c.id)}
+                  {conversations.map((c) => {
+                    const convModel =
+                      availableModels.find((m) => m.id === c.modelId) ??
+                      ({ label: c.modelId, provider: 'ollama' } as ModelOption);
+                    return (
+                      <div
+                        key={c.id}
+                        className="p-4 flex items-center justify-between gap-3 hover:bg-slate-800 transition"
                       >
-                        Delete
-                      </button>
-                    </div>
-                  ))}
+                        <button
+                          className="flex-1 text-left"
+                          onClick={() => loadConversation(c.id)}
+                          type="button"
+                        >
+                          <div className="text-sm font-semibold text-slate-200">
+                            {c.title || 'New chat'}
+                          </div>
+                          <div className="text-xs text-slate-500 mt-1">
+                            <span
+                              className={
+                                PROVIDER_COLOURS[convModel.provider] ?? 'text-slate-500'
+                              }
+                            >
+                              {convModel.label}
+                            </span>
+                            {' · '}
+                            {new Date(c.updatedAt).toLocaleString()}
+                          </div>
+                        </button>
+
+                        <button
+                          type="button"
+                          className="text-xs px-3 py-1.5 rounded-lg border border-slate-700 text-slate-400 hover:bg-red-500/10 hover:border-red-500/20 hover:text-red-400 transition"
+                          onClick={() => deleteConversation(c.id)}
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    );
+                  })}
                 </div>
               )}
             </div>
@@ -643,7 +786,8 @@ export default function SecureChatPanel() {
       {/* Security summary */}
       {messages.length > 0 && (
         <div className="mt-4 text-[11px] text-slate-500">
-          Latest decision: <span className="font-semibold text-slate-400">{decision}</span> · risk:{' '}
+          Latest decision:{' '}
+          <span className="font-semibold text-slate-400">{decision}</span> · risk:{' '}
           <span className="font-semibold text-slate-400">{risk.toFixed(2)}</span>
         </div>
       )}

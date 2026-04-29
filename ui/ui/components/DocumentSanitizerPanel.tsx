@@ -4,8 +4,7 @@ import React, { useRef, useState } from 'react';
 import { apiFetch } from '../lib/auth';
 import { CloudArrowUpIcon, ArrowDownTrayIcon, ArrowPathIcon } from '@heroicons/react/24/outline';
 
-// Fixed: use the same env var as the rest of the app
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE ?? 'http://localhost:8003';
+const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:8001';
 
 const ALLOWED_EXTENSIONS = ['.pdf', '.docx'];
 const ALLOWED_MIME_TYPES = [

@@ -51,13 +51,11 @@ def test_ai_query_happy_path(client, auth_headers, monkeypatch):
     DLP allows input and output — model returns safe string.
     """
 
-    class FakeOllamaClient:
-        async def generate(self, model: str, prompt: str) -> str:
-            assert model is not None  # model name varies by environment
-            assert "hello" in prompt.lower()
-            return "Safe model response"
+    async def fake_route_one(prompt, model, user):
+        assert "hello" in prompt.lower()
+        return {"answer": "Safe model response", "model_used": "ollama:llama3.2:1b"}
 
-    monkeypatch.setattr(ai_module, "OllamaClient", lambda: FakeOllamaClient())
+    monkeypatch.setattr(ai_module.model_router, "route_one", fake_route_one)
 
     response = client.post(
         "/ai/query",
@@ -98,11 +96,10 @@ def test_ai_query_blocks_on_input_dlp(client, auth_headers, monkeypatch):
     monkeypatch.setattr(ai_module.dlp_engine, "scan_text", fake_scan_text)
     monkeypatch.setattr(ai_module.dlp_engine, "decide", fake_decide)
 
-    class FakeOllamaClient:
-        async def generate(self, model: str, prompt: str) -> str:
-            raise AssertionError("Model should not be called when input is blocked")
+    async def fake_route_one(prompt, model, user):
+        raise AssertionError("Model should not be called when input is blocked")
 
-    monkeypatch.setattr(ai_module, "OllamaClient", lambda: FakeOllamaClient())
+    monkeypatch.setattr(ai_module.model_router, "route_one", fake_route_one)
 
     response = client.post(
         "/ai/query", json={"prompt": "This should be blocked"}, headers=auth_headers
@@ -119,16 +116,15 @@ def test_ai_query_blocks_on_input_dlp(client, auth_headers, monkeypatch):
 
 def test_ai_query_model_error_returns_502(client, auth_headers, monkeypatch):
     """
-    OllamaClient.generate raises an exception.
+    model_router.route_one raises an exception.
     Route must return HTTP 502 with a safe generic message.
     Internal error details must NOT be exposed (NCFR6).
     """
 
-    class FailingOllamaClient:
-        async def generate(self, model: str, prompt: str) -> str:
-            raise RuntimeError("model backend is down")
+    async def fake_route_one(prompt, model, user):
+        raise RuntimeError("model backend is down")
 
-    monkeypatch.setattr(ai_module, "OllamaClient", lambda: FailingOllamaClient())
+    monkeypatch.setattr(ai_module.model_router, "route_one", fake_route_one)
 
     response = client.post(
         "/ai/query", json={"prompt": "Hello, world!"}, headers=auth_headers
@@ -172,11 +168,10 @@ def test_ai_query_blocks_on_output_dlp(client, auth_headers, monkeypatch):
     monkeypatch.setattr(ai_module.dlp_engine, "scan_text", fake_scan_text)
     monkeypatch.setattr(ai_module.dlp_engine, "decide", fake_decide)
 
-    class FakeOllamaClient:
-        async def generate(self, model: str, prompt: str) -> str:
-            return "this will trigger-output-block in DLP"
+    async def fake_route_one(prompt, model, user):
+        return {"answer": "this will trigger-output-block in DLP", "model_used": "ollama:test"}
 
-    monkeypatch.setattr(ai_module, "OllamaClient", lambda: FakeOllamaClient())
+    monkeypatch.setattr(ai_module.model_router, "route_one", fake_route_one)
 
     response = client.post(
         "/ai/query", json={"prompt": "Safe input"}, headers=auth_headers
@@ -224,11 +219,10 @@ def test_ai_query_redacts_output_dlp(client, auth_headers, monkeypatch):
     monkeypatch.setattr(ai_module.dlp_engine, "decide", fake_decide)
     monkeypatch.setattr(ai_module.dlp_engine, "redact_text", fake_redact_text)
 
-    class FakeOllamaClient:
-        async def generate(self, model: str, prompt: str) -> str:
-            return "this will trigger-output-redact in DLP"
+    async def fake_route_one(prompt, model, user):
+        return {"answer": "this will trigger-output-redact in DLP", "model_used": "ollama:test"}
 
-    monkeypatch.setattr(ai_module, "OllamaClient", lambda: FakeOllamaClient())
+    monkeypatch.setattr(ai_module.model_router, "route_one", fake_route_one)
 
     response = client.post(
         "/ai/query", json={"prompt": "Safe input"}, headers=auth_headers

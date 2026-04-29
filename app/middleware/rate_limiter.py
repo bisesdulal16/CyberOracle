@@ -31,6 +31,10 @@ EXEMPT_PATHS = {
     "/api/alerts/recent",
     "/api/compliance/status",
     "/logs/list",
+    # Model catalogue and settings are polled by the UI on load;
+    # they should not count toward the user's request budget.
+    "/ai/models",
+    "/api/settings/overview",
 }
 
 # Role-based limits (requests per window) — mirrors policy.yaml

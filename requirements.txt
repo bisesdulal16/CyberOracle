@@ -126,3 +126,12 @@ pre-commit==4.3.0           # Git hook manager for repo security and automation
 ###############################################################################
 passlib[bcrypt]==1.7.4
 bcrypt==4.0.1
+
+# -----------------------------------------------------------------------------
+# 🔹 Multi-Provider LLM SDKs (optional — only needed if the matching API key
+#    is configured; adapters lazy-import so missing packages don't break Ollama)
+# -----------------------------------------------------------------------------
+openai>=1.0.0                  # OpenAI GPT-4o / GPT-3.5 adapter
+anthropic>=0.20.0              # Anthropic Claude adapter
+google-genai>=1.0.0           # Google Gemini adapter (new SDK)
+
