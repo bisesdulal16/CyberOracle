@@ -65,7 +65,7 @@ app.add_middleware(DLPFilterMiddleware)
 app.add_middleware(RateLimitMiddleware)
 app.add_middleware(
     CORSMiddleware,
-    allow_origin_regex=r"^https?://(localhost|127\.0\.0\.1|cyberoracle\.unt\.ad\.unt\.edu)(:\d+)?$",
+    allow_origin_regex=r"^https?://(localhost|127\.0\.0\.1|cyberoracle\.eng\.unt\.edu)(:\d+)?$",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

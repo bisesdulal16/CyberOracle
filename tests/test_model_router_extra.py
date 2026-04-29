@@ -7,7 +7,7 @@ from app.services.adapters.ollama import OllamaAdapter
 @pytest.mark.asyncio
 async def test_route_one_rejects_unsupported_model():
     with pytest.raises(ValueError, match="Unsupported model"):
-        await route_one("hi", "openai:gpt-4o", {"user_id": "u1"})
+        await route_one("hi", "huggingface:llama3", {"user_id": "u1"})
 
 
 @pytest.mark.asyncio

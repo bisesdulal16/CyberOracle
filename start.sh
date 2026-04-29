@@ -20,8 +20,8 @@ async def init():
 asyncio.run(init())
 "
 
-echo "[2/3] Freeing port 8001 if already in use..."
-lsof -ti :8001 | xargs -r kill -9 2>/dev/null && sleep 1 || true
+echo "[2/3] Freeing port 8000 if already in use..."
+fuser -k 8000/tcp 2>/dev/null && sleep 1 || true
 
-echo "[3/3] Starting uvicorn backend on port 8001..."
-uvicorn app.main:app --host 0.0.0.0 --port 8001 --reload
+echo "[3/3] Starting uvicorn backend on port 8000..."
+uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
