@@ -36,12 +36,13 @@ PROJECT_ROOT = os.path.dirname(CURRENT_DIR)
 if PROJECT_ROOT not in sys.path:
     sys.path.insert(0, PROJECT_ROOT)
 
-from cryptography.fernet import Fernet, InvalidToken
+from cryptography.fernet import Fernet, InvalidToken  # noqa: E402
 
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _current_key() -> bytes:
     key = os.getenv("DB_ENCRYPTION_KEY", "")
@@ -74,6 +75,7 @@ def _decrypt_safe(fernet: Fernet, value: str) -> str:
 # ---------------------------------------------------------------------------
 # pgcrypto demo
 # ---------------------------------------------------------------------------
+
 
 def run_pgcrypto_demo():
     """
@@ -118,7 +120,9 @@ def run_pgcrypto_demo():
     print("  pgcrypto (pgp_sym_encrypt) Demo")
     print("=" * 60)
     print(f"  Plaintext : {plaintext}")
-    print(f"  Ciphertext: {bytes(ciphertext).hex()[:64]}...  (binary, {len(bytes(ciphertext))} bytes)")
+    print(
+        f"  Ciphertext: {bytes(ciphertext).hex()[:64]}...  (binary, {len(bytes(ciphertext))} bytes)"
+    )
     print(f"  Decrypted : {recovered}")
     print(f"  Match     : {'YES' if recovered == plaintext else 'NO'}")
     print("=" * 60)
@@ -127,6 +131,7 @@ def run_pgcrypto_demo():
 # ---------------------------------------------------------------------------
 # .env updater
 # ---------------------------------------------------------------------------
+
 
 def _update_env(new_key: str, new_key_id: str):
     """Replace DB_ENCRYPTION_KEY and DB_ENCRYPTION_KEY_ID in .env in-place."""
@@ -140,7 +145,9 @@ def _update_env(new_key: str, new_key_id: str):
 
     updated = []
     for line in lines:
-        if line.startswith("DB_ENCRYPTION_KEY=") and not line.startswith("DB_ENCRYPTION_KEY_ID"):
+        if line.startswith("DB_ENCRYPTION_KEY=") and not line.startswith(
+            "DB_ENCRYPTION_KEY_ID"
+        ):
             updated.append(f"DB_ENCRYPTION_KEY={new_key}\n")
         elif line.startswith("DB_ENCRYPTION_KEY_ID="):
             updated.append(f"DB_ENCRYPTION_KEY_ID={new_key_id}\n")
@@ -154,6 +161,7 @@ def _update_env(new_key: str, new_key_id: str):
 # ---------------------------------------------------------------------------
 # Key rotation
 # ---------------------------------------------------------------------------
+
 
 def run_key_rotation(dry_run: bool = False):
     import asyncio
@@ -201,7 +209,9 @@ def run_key_rotation(dry_run: bool = False):
                     skipped += 1
                     continue
 
-                new_ciphertext = new_fernet.encrypt(plaintext.encode("utf-8")).decode("utf-8")
+                new_ciphertext = new_fernet.encrypt(plaintext.encode("utf-8")).decode(
+                    "utf-8"
+                )
 
                 if not dry_run:
                     await conn.execute(
@@ -241,6 +251,7 @@ def run_key_rotation(dry_run: bool = False):
 # Status report
 # ---------------------------------------------------------------------------
 
+
 def show_status():
     enabled = os.getenv("DB_ENCRYPTION_ENABLED", "false").lower() == "true"
     key = os.getenv("DB_ENCRYPTION_KEY", "")
@@ -252,8 +263,8 @@ def show_status():
     print(f"  App-level Fernet encryption : {'ENABLED' if enabled else 'DISABLED'}")
     print(f"  Current key version         : {key_id}")
     print(f"  Key present in env          : {'YES' if key else 'NO'}")
-    print(f"  pgcrypto extension          : INSTALLED (v1.3)")
-    print(f"  Encrypted column            : logs.message")
+    print("  pgcrypto extension          : INSTALLED (v1.3)")
+    print("  Encrypted column            : logs.message")
     print("=" * 60)
 
 
@@ -262,10 +273,18 @@ def show_status():
 # ---------------------------------------------------------------------------
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="CyberOracle key rotation tool (PSFR7)")
-    parser.add_argument("--dry-run", action="store_true", help="Simulate rotation without writing to DB")
-    parser.add_argument("--pgcrypto-demo", action="store_true", help="Run pgcrypto round-trip demo")
-    parser.add_argument("--status", action="store_true", help="Show current encryption status and exit")
+    parser = argparse.ArgumentParser(
+        description="CyberOracle key rotation tool (PSFR7)"
+    )
+    parser.add_argument(
+        "--dry-run", action="store_true", help="Simulate rotation without writing to DB"
+    )
+    parser.add_argument(
+        "--pgcrypto-demo", action="store_true", help="Run pgcrypto round-trip demo"
+    )
+    parser.add_argument(
+        "--status", action="store_true", help="Show current encryption status and exit"
+    )
     args = parser.parse_args()
 
     if args.status:

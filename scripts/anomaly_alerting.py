@@ -26,7 +26,7 @@ PROJECT_ROOT = os.path.dirname(CURRENT_DIR)
 if PROJECT_ROOT not in sys.path:
     sys.path.insert(0, PROJECT_ROOT)
 
-from app.utils.alert_manager import send_alert
+from app.utils.alert_manager import send_alert  # noqa: E402
 
 # -------------------------------------------------------------------
 # Configuration
@@ -35,10 +35,10 @@ BASE_URL = os.getenv("CYBERORACLE_BASE_URL", "http://localhost:8001")
 ADMIN_USER = os.getenv("ADMIN_USERNAME", "admin")
 ADMIN_PASS = os.getenv("ADMIN_PASSWORD", "changeme_admin")
 
-RATE_THRESHOLD = 5        # flag if same IP appears more than this in logs
+RATE_THRESHOLD = 5  # flag if same IP appears more than this in logs
 PAYLOAD_SIZE_THRESHOLD = 500  # characters — flag unusually large prompts
-RISK_SCORE_THRESHOLD = 0.7    # flag high-risk DLP events
-BLOCK_REPEAT_THRESHOLD = 2    # flag IPs blocked more than this many times
+RISK_SCORE_THRESHOLD = 0.7  # flag high-risk DLP events
+BLOCK_REPEAT_THRESHOLD = 2  # flag IPs blocked more than this many times
 
 
 def get_token() -> str:
@@ -51,11 +51,12 @@ def get_token() -> str:
     return resp.json()["access_token"]
 
 
-def log_anomaly_to_ui(token: str, anomaly_type: str, message: str, severity: str = "high"):
+def log_anomaly_to_ui(
+    token: str, anomaly_type: str, message: str, severity: str = "high"
+):
     """Write anomaly directly to DB so it appears in the UI Alerts tab."""
     try:
         import asyncio
-        from sqlalchemy.ext.asyncio import AsyncSession
         from app.db.db import AsyncSessionLocal
         from app.models import LogEntry
         from datetime import datetime, timezone
@@ -77,7 +78,7 @@ def log_anomaly_to_ui(token: str, anomaly_type: str, message: str, severity: str
                 await session.commit()
 
         asyncio.run(_insert())
-        print(f"    [UI] Anomaly logged to dashboard.")
+        print("    [UI] Anomaly logged to dashboard.")
     except Exception as e:
         print(f"    [UI] Failed to log to dashboard: {e}")
 
@@ -95,6 +96,7 @@ def fetch_logs(token: str) -> list:
 def check_rate_anomaly(logs: list) -> list:
     """Detect IPs with unusually high request counts."""
     from collections import Counter
+
     ip_counts = Counter()
     for log in logs:
         msg = log.get("message", "")
@@ -120,11 +122,13 @@ def check_payload_anomaly(logs: list) -> list:
             try:
                 preview = msg.split("'input_preview': '")[1].split("'")[0]
                 if len(preview) > PAYLOAD_SIZE_THRESHOLD:
-                    flagged.append({
-                        "id": log.get("id"),
-                        "size": len(preview),
-                        "preview": preview[:100] + "..."
-                    })
+                    flagged.append(
+                        {
+                            "id": log.get("id"),
+                            "size": len(preview),
+                            "preview": preview[:100] + "...",
+                        }
+                    )
             except IndexError:
                 pass
     return flagged
@@ -147,6 +151,7 @@ def check_high_risk(logs: list) -> list:
 def check_repeated_blocks(logs: list) -> list:
     """Detect IPs that have been blocked multiple times."""
     from collections import Counter
+
     block_counts = Counter()
     for log in logs:
         if log.get("policy_decision") == "block":
@@ -185,8 +190,14 @@ def run():
     rate_hits = check_rate_anomaly(logs)
     if rate_hits:
         for hit in rate_hits:
-            print(f"    ANOMALY: IP {hit['ip']} made {hit['count']} requests (threshold: {RATE_THRESHOLD})")
-            msg = f"Rate Anomaly: IP {hit['ip']} made {hit['count']} requests (threshold: {RATE_THRESHOLD}). Action: Investigate or block."
+            print(
+                f"    ANOMALY: IP {hit['ip']} made {hit['count']} requests"
+                f" (threshold: {RATE_THRESHOLD})"
+            )
+            msg = (
+                f"Rate Anomaly: IP {hit['ip']} made {hit['count']} requests"
+                f" (threshold: {RATE_THRESHOLD}). Action: Investigate or block."
+            )
             send_alert(msg, severity="warning", source="anomaly_alerting")
             log_anomaly_to_ui(token, "RATE_ANOMALY", msg, severity="high")
             anomalies_found += 1
@@ -198,8 +209,13 @@ def run():
     payload_hits = check_payload_anomaly(logs)
     if payload_hits:
         for hit in payload_hits:
-            print(f"    ANOMALY: Log #{hit['id']} has large payload ({hit['size']} chars)")
-            msg = f"Large Payload: Log #{hit['id']} — {hit['size']} chars (threshold: {PAYLOAD_SIZE_THRESHOLD}). Preview: {hit['preview']}"
+            print(
+                f"    ANOMALY: Log #{hit['id']} has large payload ({hit['size']} chars)"
+            )
+            msg = (
+                f"Large Payload: Log #{hit['id']} — {hit['size']} chars"
+                f" (threshold: {PAYLOAD_SIZE_THRESHOLD}). Preview: {hit['preview']}"
+            )
             send_alert(msg, severity="warning", source="anomaly_alerting")
             log_anomaly_to_ui(token, "PAYLOAD_ANOMALY", msg, severity="high")
             anomalies_found += 1
@@ -211,8 +227,14 @@ def run():
     risk_hits = check_high_risk(logs)
     if risk_hits:
         for hit in risk_hits[:3]:
-            print(f"    ANOMALY: Log #{hit['id']} risk={hit['risk_score']} decision={hit['decision']}")
-            msg = f"High-Risk DLP: Log #{hit['id']} on {hit['endpoint']} — risk={hit['risk_score']} decision={hit['decision']}. Immediate review required."
+            print(
+                f"    ANOMALY: Log #{hit['id']} risk={hit['risk_score']} decision={hit['decision']}"
+            )
+            msg = (
+                f"High-Risk DLP: Log #{hit['id']} on {hit['endpoint']}"
+                f" — risk={hit['risk_score']} decision={hit['decision']}."
+                " Immediate review required."
+            )
             send_alert(msg, severity="critical", source="anomaly_alerting")
             log_anomaly_to_ui(token, "HIGH_RISK_DLP", msg, severity="high")
             anomalies_found += 1
@@ -227,7 +249,10 @@ def run():
     if block_hits:
         for hit in block_hits:
             print(f"    ANOMALY: IP {hit['ip']} blocked {hit['blocks']} times")
-            msg = f"Repeated Blocks: IP {hit['ip']} blocked {hit['blocks']} times (threshold: {BLOCK_REPEAT_THRESHOLD}). Consider permanent ban."
+            msg = (
+                f"Repeated Blocks: IP {hit['ip']} blocked {hit['blocks']} times"
+                f" (threshold: {BLOCK_REPEAT_THRESHOLD}). Consider permanent ban."
+            )
             send_alert(msg, severity="high", source="anomaly_alerting")
             log_anomaly_to_ui(token, "REPEATED_BLOCK", msg, severity="high")
             anomalies_found += 1

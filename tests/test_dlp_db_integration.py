@@ -28,4 +28,12 @@ async def test_dlp_and_db_flow():
         )
 
     assert response.status_code == 200
-    assert any(tag in response.text for tag in ["***", "<GENERIC_SSN>", "<DATE_TIME>", "<US_SOCIAL_SECURITY_NUMBER>"])
+    assert any(
+        tag in response.text
+        for tag in [
+            "***",
+            "<GENERIC_SSN>",
+            "<DATE_TIME>",
+            "<US_SOCIAL_SECURITY_NUMBER>",
+        ]
+    )

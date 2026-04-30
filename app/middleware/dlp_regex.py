@@ -44,8 +44,7 @@ REGEX_PATTERNS: Dict[str, str] = {
     ),
     # US Phone numbers: (555) 123-4567, 555-123-4567, +1-555-123-4567
     "phone_number": (
-        r"\b(?:\+1[-.\s]?)?"
-        r"(?:\(\d{3}\)|\d{3})[-.\s]?\d{3}[-.\s]?\d{4}\b"
+        r"\b(?:\+1[-.\s]?)?" r"(?:\(\d{3}\)|\d{3})[-.\s]?\d{3}[-.\s]?\d{4}\b"
     ),
     # US Passport numbers: letter + 8 digits
     "passport": r"\b[A-Z]{1}[0-9]{8}\b",
@@ -57,9 +56,7 @@ REGEX_PATTERNS: Dict[str, str] = {
         r"\.){3}(?:25[0-5]|2[0-4]\d|[01]?\d\d?)\b"
     ),
     # Bank account numbers (8-17 digits with context)
-    "bank_account": (
-        r"(?i)(?:account|acct|routing)[\s#:]+([0-9]{8,17})"
-    ),
+    "bank_account": (r"(?i)(?:account|acct|routing)[\s#:]+([0-9]{8,17})"),
     # Date of birth patterns: MM/DD/YYYY or YYYY-MM-DD
     "date_of_birth": (
         r"(?i)(?:dob|date\s+of\s+birth|born\s+on)[\s:]+\d{1,2}[/-]\d{1,2}[/-]\d{2,4}"

@@ -8,21 +8,20 @@ No real DB or file I/O required — all external calls are mocked.
 
 import os
 import sys
-import pytest
-from unittest.mock import patch, mock_open
+from unittest.mock import patch
 from cryptography.fernet import Fernet
 
-# Make sure project root is on the path
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if PROJECT_ROOT not in sys.path:
     sys.path.insert(0, PROJECT_ROOT)
 
-from scripts.key_rotation import _next_key_id, _decrypt_safe, _update_env
+from scripts.key_rotation import _next_key_id, _decrypt_safe, _update_env  # noqa: E402
 
 
 # ---------------------------------------------------------------------------
 # _next_key_id
 # ---------------------------------------------------------------------------
+
 
 def test_next_key_id_v1_to_v2():
     assert _next_key_id("v1") == "v2"
@@ -44,6 +43,7 @@ def test_next_key_id_unexpected_format():
 # ---------------------------------------------------------------------------
 # _decrypt_safe
 # ---------------------------------------------------------------------------
+
 
 def test_decrypt_safe_valid_ciphertext():
     key = Fernet.generate_key()
@@ -81,6 +81,7 @@ def test_decrypt_safe_empty_string_returns_empty():
 # _update_env
 # ---------------------------------------------------------------------------
 
+
 def test_update_env_replaces_key_and_version(tmp_path):
     env_file = tmp_path / ".env"
     env_file.write_text(
@@ -112,6 +113,7 @@ def test_update_env_missing_file_does_not_crash(tmp_path):
 # ---------------------------------------------------------------------------
 # Key generation sanity
 # ---------------------------------------------------------------------------
+
 
 def test_fernet_generate_key_is_valid():
     key = Fernet.generate_key()

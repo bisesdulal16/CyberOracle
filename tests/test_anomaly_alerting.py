@@ -8,14 +8,12 @@ No real HTTP calls or DB writes — external calls are mocked.
 
 import os
 import sys
-import pytest
-from unittest.mock import patch, MagicMock
 
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if PROJECT_ROOT not in sys.path:
     sys.path.insert(0, PROJECT_ROOT)
 
-from scripts.anomaly_alerting import (
+from scripts.anomaly_alerting import (  # noqa: E402
     check_rate_anomaly,
     check_payload_anomaly,
     check_high_risk,
@@ -31,7 +29,10 @@ from scripts.anomaly_alerting import (
 # Helpers
 # ---------------------------------------------------------------------------
 
-def _make_log(message="", policy_decision="allow", risk_score=0.0, id=1, endpoint="/ai/query"):
+
+def _make_log(
+    message="", policy_decision="allow", risk_score=0.0, id=1, endpoint="/ai/query"
+):
     return {
         "id": id,
         "message": message,
@@ -48,6 +49,7 @@ def _ip_log(ip: str, **kwargs):
 # ---------------------------------------------------------------------------
 # check_rate_anomaly
 # ---------------------------------------------------------------------------
+
 
 def test_rate_anomaly_detects_ip_over_threshold():
     ip = "10.0.0.1"
@@ -91,6 +93,7 @@ def test_rate_anomaly_multiple_ips():
 # check_payload_anomaly
 # ---------------------------------------------------------------------------
 
+
 def test_payload_anomaly_detects_large_input():
     big_input = "A" * (PAYLOAD_SIZE_THRESHOLD + 1)
     log = _make_log(message=f"{{'input_preview': '{big_input}'}}", id=42)
@@ -128,6 +131,7 @@ def test_payload_anomaly_preview_truncated_to_100():
 # check_high_risk
 # ---------------------------------------------------------------------------
 
+
 def test_high_risk_detects_above_threshold():
     log = _make_log(risk_score=RISK_SCORE_THRESHOLD, id=10)
     result = check_high_risk([log])
@@ -161,6 +165,7 @@ def test_high_risk_returns_correct_fields():
 # check_repeated_blocks
 # ---------------------------------------------------------------------------
 
+
 def test_repeated_blocks_detects_ip_at_threshold():
     ip = "192.168.1.1"
     logs = [_ip_log(ip, policy_decision="block") for _ in range(BLOCK_REPEAT_THRESHOLD)]
@@ -172,7 +177,9 @@ def test_repeated_blocks_detects_ip_at_threshold():
 
 def test_repeated_blocks_no_flag_below_threshold():
     ip = "192.168.1.2"
-    logs = [_ip_log(ip, policy_decision="block") for _ in range(BLOCK_REPEAT_THRESHOLD - 1)]
+    logs = [
+        _ip_log(ip, policy_decision="block") for _ in range(BLOCK_REPEAT_THRESHOLD - 1)
+    ]
     assert check_repeated_blocks(logs) == []
 
 

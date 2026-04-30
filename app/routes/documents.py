@@ -181,6 +181,7 @@ async def sanitize_document(
 
     # DLP scan — regex first, then Presidio for advanced NLP entities
     from app.middleware.dlp_presidio import presidio_scan
+
     regex_redacted, _ = scan_text(raw_text)
     redacted_text, _ = presidio_scan(regex_redacted, alert=False)
     findings = _count_findings(raw_text)
