@@ -13,6 +13,9 @@ import AlertsPanel from './AlertsPanel';
 import ReportsPanel from './ReportsPanel';
 import Settings from './Settings';
 import KnowledgeBasePanel from './KnowledgeBasePanel';
+import AIModelsPanel from './AIModelsPanel';
+import AIAgentsPanel from './AIAgentsPanel';
+import MonitoringPanel from './MonitoringPanel';
 
 import {
   Squares2X2Icon,
@@ -29,10 +32,11 @@ import {
   ArrowRightStartOnRectangleIcon,
   ArrowTopRightOnSquareIcon,
   ArrowPathIcon,
+  ComputerDesktopIcon,
 } from '@heroicons/react/24/outline';
 
 const API_BASE =
-  process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:8000';
+  process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:8001';
 
 /* ---------------- TYPES ---------------- */
 
@@ -68,6 +72,7 @@ const ALL_SECTIONS = [
   'Alerts',
   'Audit Log',
   'Reports',
+  'Monitor',
   'Settings',
 ] as const;
 
@@ -88,6 +93,7 @@ const SECTION_ICONS: Record<SectionName, SectionIconType> = {
   Alerts: BellAlertIcon,
   'Audit Log': ClipboardDocumentListIcon,
   Reports: ChartBarIcon,
+  Monitor: ComputerDesktopIcon,
   Settings: Cog6ToothIcon,
 };
 
@@ -386,22 +392,10 @@ const Dashboard: React.FC = () => {
         return <DocumentSanitizerPanel />;
 
       case 'AI Models':
-        return (
-          <ComingSoonCard
-            icon={CpuChipIcon}
-            title="AI Models"
-            description="This view will list all connected models and routing rules."
-          />
-        );
+        return <AIModelsPanel />;
 
       case 'Agents':
-        return (
-          <ComingSoonCard
-            icon={CircleStackIcon}
-            title="Agents"
-            description="Agent orchestration and trust boundaries."
-          />
-        );
+        return <AIAgentsPanel />;
 
       case 'Knowledge Base':
         return <KnowledgeBasePanel />;
@@ -417,6 +411,9 @@ const Dashboard: React.FC = () => {
 
       case 'Reports':
         return <ReportsPanel />;
+
+      case 'Monitor':
+        return <MonitoringPanel />;
 
       case 'Settings':
         return <Settings />;

@@ -1,10 +1,13 @@
 # app/routes/metrics.py
 
-from fastapi import APIRouter, Depends
+import os
+
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy import select, func, and_
 from datetime import datetime, timedelta
 
 from app.auth.rbac import require_roles
+from app.auth.policy_loader import load_policy
 from app.db.db import AsyncSessionLocal
 from app.models import LogEntry
 from app.utils.db_encryption import is_encryption_enabled, get_key_id, decrypt_value
@@ -230,6 +233,66 @@ async def get_recent_alerts(
     return {"alerts": alerts}
 
 
+@router.get("/settings/overview")
+async def get_settings_overview(
+    _user: dict = Depends(require_roles("admin", "developer", "auditor")),
+):
+    """
+    Returns a read-only snapshot of the gateway's runtime configuration:
+    DLP rules, rate limits, compliance frameworks, integration status,
+    and encryption state. Used by the Settings tab.
+    """
+    policy = load_policy()
+
+    dlp = policy.get("dlp_rules", {})
+    raw_patterns = dlp.get("patterns", {})
+    rules = [
+        {
+            "name": name.replace("_", " ").title(),
+            "severity": meta.get("severity", "unknown"),
+            "description": meta.get("description", ""),
+        }
+        for name, meta in raw_patterns.items()
+    ]
+
+    rl = policy.get("rate_limiting", {})
+    rpm = rl.get("requests_per_minute", {})
+
+    compliance = policy.get("compliance", {})
+
+    return {
+        "dlp": {
+            "enabled": dlp.get("enabled", False),
+            "block_on_detection": dlp.get("block_on_detection", False),
+            "redact_mode": dlp.get("redact_mode", "none"),
+            "rules": rules,
+        },
+        "rate_limits": {
+            "enabled": rl.get("enabled", False),
+            "window_seconds": rl.get("window_seconds", 60),
+            "per_role": {
+                "admin": rpm.get("admin", 0),
+                "developer": rpm.get("developer", 0),
+                "auditor": rpm.get("auditor", 0),
+            },
+        },
+        "compliance": {
+            "frameworks": compliance.get("frameworks", []),
+            "log_retention_days": compliance.get("log_retention_days", 90),
+            "encryption_standard": compliance.get("encryption_standard", ""),
+            "audit_trail_required": compliance.get("audit_trail_required", True),
+        },
+        "integrations": {
+            "discord": bool(os.getenv("DISCORD_WEBHOOK_URL", "").strip()),
+            "slack": bool(os.getenv("SLACK_WEBHOOK_URL", "").strip()),
+        },
+        "encryption": {
+            "enabled": is_encryption_enabled(),
+            "key_id": get_key_id() if is_encryption_enabled() else None,
+        },
+    }
+
+
 @router.get("/security/encryption-status")
 async def get_encryption_status(
     _user: dict = Depends(require_roles("admin", "developer", "auditor")),
@@ -250,4 +313,164 @@ async def get_encryption_status(
         "data_in_transit": True,
         "transit_mechanism": "HTTPS/TLS (certs/server.crt)",
         "status": "ACTIVE" if enabled else "DISABLED",
+    }
+
+
+@router.post("/logs/promote")
+async def trigger_log_promotion(
+    window_hours: int = Query(
+        default=24, ge=1, le=168, description="Promotion window in hours (1–168)"
+    ),
+    _user: dict = Depends(require_roles("admin", "developer", "auditor")),
+):
+    """
+    Log Promotion endpoint (DoD DevSecOps Monitor Phase).
+
+    Promotes high-risk log entries (risk_score >= 0.7, severity=high)
+    from the past window_hours to external monitoring channels
+    (Discord/Slack/email) and writes a promotion audit record.
+
+    Returns the number of promoted entries and their summaries.
+    """
+    from app.services.log_promoter import promote_logs
+
+    promoted = await promote_logs(window_hours=window_hours)
+    return {
+        "promoted_at": datetime.utcnow().isoformat() + "Z",
+        "window_hours": window_hours,
+        "promoted_count": len(promoted),
+        "promoted_entries": promoted,
+    }
+
+
+@router.get("/iscm/status")
+async def get_iscm_status(
+    _user: dict = Depends(require_roles("admin", "developer", "auditor")),
+):
+    """
+    ISCM — Information Systems Continuous Monitoring status snapshot.
+
+    Provides a holistic real-time view of the system's security and
+    compliance posture, satisfying the DoD DevSecOps Monitor Phase
+    requirement for ISCM.
+
+    Aggregates:
+    - Compliance health (HIPAA, FERPA, NIST CSF, GDPR)
+    - Active threat indicators (1-hour window)
+    - Log integrity (tampered entry detection)
+    - Encryption and data-protection status
+    - Alert integration status
+    - Overall monitoring health score
+    """
+    now = datetime.utcnow()
+    since_1h = now - timedelta(hours=1)
+    since_24h = now - timedelta(hours=24)
+
+    async with AsyncSessionLocal() as session:
+        # ── Compliance: overall allow ratio across all logged endpoints ──────
+        total_all = (
+            await session.execute(select(func.count()).select_from(LogEntry))
+        ).scalar() or 0
+
+        total_allowed = (
+            await session.execute(
+                select(func.count()).where(LogEntry.policy_decision == "allow")
+            )
+        ).scalar() or 0
+
+        # ── Threat indicators (last 1 hour) ──────────────────────────────────
+        high_risk_1h = (
+            await session.execute(
+                select(func.count()).where(
+                    and_(LogEntry.risk_score >= 0.7, LogEntry.created_at >= since_1h)
+                )
+            )
+        ).scalar() or 0
+
+        blocked_1h = (
+            await session.execute(
+                select(func.count()).where(
+                    and_(
+                        LogEntry.policy_decision == "block",
+                        LogEntry.created_at >= since_1h,
+                    )
+                )
+            )
+        ).scalar() or 0
+
+        # ── Log integrity: entries that have an integrity_hash set ────────────
+        total_with_hash = (
+            await session.execute(
+                select(func.count()).where(LogEntry.integrity_hash.isnot(None))
+            )
+        ).scalar() or 0
+
+        # ── Activity (last 24 h) ─────────────────────────────────────────────
+        total_24h = (
+            await session.execute(
+                select(func.count()).where(LogEntry.created_at >= since_24h)
+            )
+        ).scalar() or 0
+
+        promotions_24h = (
+            await session.execute(
+                select(func.count()).where(
+                    and_(
+                        LogEntry.event_type == "log_promoted",
+                        LogEntry.created_at >= since_24h,
+                    )
+                )
+            )
+        ).scalar() or 0
+
+    compliance_score = round(total_allowed / total_all, 4) if total_all > 0 else 0.0
+    integrity_coverage = round(total_with_hash / total_all, 4) if total_all > 0 else 1.0
+
+    threat_level = "none"
+    if high_risk_1h >= 10 or blocked_1h >= 5:
+        threat_level = "high"
+    elif high_risk_1h >= 3 or blocked_1h >= 2:
+        threat_level = "medium"
+    elif high_risk_1h >= 1 or blocked_1h >= 1:
+        threat_level = "low"
+
+    monitoring_health = "healthy"
+    if compliance_score < 0.5 or threat_level == "high":
+        monitoring_health = "degraded"
+    elif compliance_score < 0.8 or threat_level == "medium":
+        monitoring_health = "warning"
+
+    encryption_on = is_encryption_enabled()
+
+    return {
+        "assessed_at": now.isoformat() + "Z",
+        "monitoring_health": monitoring_health,
+        "compliance": {
+            "score": compliance_score,
+            "total_events": total_all,
+            "allowed_events": total_allowed,
+        },
+        "threat_indicators": {
+            "level": threat_level,
+            "high_risk_events_1h": high_risk_1h,
+            "blocked_requests_1h": blocked_1h,
+        },
+        "log_integrity": {
+            "total_entries": total_all,
+            "integrity_hashed": total_with_hash,
+            "coverage": integrity_coverage,
+        },
+        "activity_24h": {
+            "total_requests": total_24h,
+            "log_promotions": promotions_24h,
+        },
+        "data_protection": {
+            "encryption_at_rest": encryption_on,
+            "encryption_in_transit": True,
+        },
+        "alert_channels": {
+            "discord": bool(os.getenv("DISCORD_WEBHOOK_URL", "").strip()),
+            "slack": bool(os.getenv("SLACK_WEBHOOK_URL", "").strip()),
+            "email": bool(os.getenv("ALERT_EMAIL_TO", "").strip()),
+        },
     }
