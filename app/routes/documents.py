@@ -85,14 +85,29 @@ def _extract_text_docx(content: bytes) -> str:
 
 def _count_findings(text: str) -> List[RedactionFinding]:
     """
-    Count regex matches per pattern type in the original text.
-    Returns a list of RedactionFinding sorted by count descending.
+    Count findings from both regex and Presidio (NLP) scanners.
+    Regex catches SSN/credit card/email/API keys.
+    Presidio catches PERSON, PHONE_NUMBER, and contextual entities.
     """
-    findings: List[RedactionFinding] = []
+    from collections import Counter
+    from app.middleware.dlp_presidio import analyzer, TARGET_ENTITIES
+
+    counts: Counter = Counter()
+
+    # Regex-based findings
     for name, pattern in REGEX_PATTERNS.items():
         matches = re.findall(pattern, text)
         if matches:
-            findings.append(RedactionFinding(type=name.upper(), count=len(matches)))
+            counts[name.upper()] += len(matches)
+
+    # Presidio NLP-based findings
+    results = analyzer.analyze(text=text, entities=TARGET_ENTITIES, language="en")
+    for r in results:
+        entity = r.entity_type
+        if entity not in counts:
+            counts[entity] += 1
+
+    findings = [RedactionFinding(type=k, count=v) for k, v in counts.items()]
     return sorted(findings, key=lambda f: f.count, reverse=True)
 
 
@@ -164,9 +179,11 @@ async def sanitize_document(
             ),
         )
 
-    # DLP scan
+    # DLP scan — regex first, then Presidio for advanced NLP entities
+    from app.middleware.dlp_presidio import presidio_scan
+    regex_redacted, _ = scan_text(raw_text)
+    redacted_text, _ = presidio_scan(regex_redacted, alert=False)
     findings = _count_findings(raw_text)
-    redacted_text, _ = scan_text(raw_text)
     total_redactions = sum(f.count for f in findings)
 
     # Audit log

@@ -338,8 +338,8 @@ Response returned to caller`}
       <div className="space-y-3 text-sm text-slate-300">
         <p>
           All endpoints are served at{' '}
-          <code className="font-mono text-xs bg-slate-800 rounded px-1 text-cyan-300">http://localhost:8000</code>{' '}
-          by default.
+          <code className="font-mono text-xs bg-slate-800 rounded px-1 text-cyan-300">https://cyberoracle.eng.unt.edu</code>{' '}
+          (or <code className="font-mono text-xs bg-slate-800 rounded px-1 text-cyan-300">http://localhost:8001</code> locally).
         </p>
         <table className="w-full text-xs border-collapse">
           <thead>
@@ -383,7 +383,7 @@ Response returned to caller`}
         <p className="text-slate-500">
           Full interactive docs:{' '}
           <code className="font-mono text-xs bg-slate-800 rounded px-1 text-cyan-300">
-            http://localhost:8000/docs
+            https://cyberoracle.eng.unt.edu/docs
           </code>
         </p>
       </div>

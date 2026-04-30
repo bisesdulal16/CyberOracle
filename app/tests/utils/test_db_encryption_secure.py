@@ -15,11 +15,18 @@ from app.utils.db_encryption import (
 
 
 def test_encryption_disabled_by_default():
-    """Encryption must be off unless explicitly enabled."""
-    # In test env DB_ENCRYPTION_ENABLED is not set to true
-    # so either disabled or no key — both are acceptable
-    result = encrypt_value("hello")
-    assert result == "hello"
+    """When encryption is explicitly disabled, encrypt_value returns input unchanged."""
+    import app.utils.db_encryption as enc_module
+    original_enabled = enc_module._ENCRYPTION_ENABLED
+    original_fernet = enc_module._fernet
+    enc_module._ENCRYPTION_ENABLED = False
+    enc_module._fernet = None
+    try:
+        result = encrypt_value("hello")
+        assert result == "hello"
+    finally:
+        enc_module._ENCRYPTION_ENABLED = original_enabled
+        enc_module._fernet = original_fernet
 
 
 def test_encrypt_value_none_returns_none():

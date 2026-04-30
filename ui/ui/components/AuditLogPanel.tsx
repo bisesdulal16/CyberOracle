@@ -10,10 +10,10 @@ import {
   FunnelIcon,
   ShieldCheckIcon,
   ShieldExclamationIcon,
+  XMarkIcon,
 } from '@heroicons/react/24/outline';
 
-// Fixed: use the same env var as the rest of the app
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:8003';
+const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:8001';
 
 const PAGE_SIZE = 20;
 
@@ -152,6 +152,7 @@ const AuditLogPanel: React.FC = () => {
     event_type: '',
     policy_decision: '',
   });
+  const [selectedEntry, setSelectedEntry] = useState<LogEntry | null>(null);
 
   const fetchLogs = useCallback(
     async (currentPage: number, currentFilters: Filters) => {
@@ -337,7 +338,8 @@ const AuditLogPanel: React.FC = () => {
                 logs.map((entry) => (
                   <tr
                     key={entry.id}
-                    className={`border-b border-slate-800 transition ${
+                    onClick={() => setSelectedEntry(entry)}
+                    className={`border-b border-slate-800 transition cursor-pointer ${
                       entry.integrity_verified === false
                         ? 'bg-red-500/5 hover:bg-red-500/10'
                         : 'hover:bg-slate-800'
@@ -437,8 +439,69 @@ const AuditLogPanel: React.FC = () => {
           </div>
         )}
       </div>
+
+      {/* Detail modal */}
+      {selectedEntry && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+          onClick={() => setSelectedEntry(null)}
+        >
+          <div
+            className="w-full max-w-2xl rounded-xl border border-slate-700 bg-slate-900 shadow-2xl overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between px-5 py-4 border-b border-slate-800">
+              <h3 className="text-sm font-semibold text-slate-100">
+                Log Entry #{selectedEntry.id}
+              </h3>
+              <button
+                onClick={() => setSelectedEntry(null)}
+                className="text-slate-500 hover:text-slate-300 transition"
+              >
+                <XMarkIcon className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="px-5 py-4 space-y-3 text-xs">
+              <Row label="Time" value={selectedEntry.created_at ?? '—'} />
+              <Row label="Endpoint" value={selectedEntry.endpoint} mono />
+              <Row label="Method" value={selectedEntry.method} />
+              <Row label="Status" value={String(selectedEntry.status_code)} />
+              <Row label="Event Type" value={selectedEntry.event_type ?? '—'} />
+              <Row label="Severity" value={selectedEntry.severity ?? '—'} />
+              <Row label="Risk Score" value={selectedEntry.risk_score != null ? selectedEntry.risk_score.toFixed(4) : '—'} />
+              <Row label="Policy Decision" value={selectedEntry.policy_decision ?? '—'} />
+              <Row label="Source" value={selectedEntry.source ?? '—'} />
+              <Row
+                label="Integrity"
+                value={
+                  selectedEntry.integrity_verified === true
+                    ? 'Verified ✓'
+                    : selectedEntry.integrity_verified === false
+                    ? 'TAMPERED ✗'
+                    : 'Not hashed'
+                }
+              />
+              <div>
+                <p className="text-slate-500 mb-1 font-medium uppercase tracking-wide">Message</p>
+                <pre className="whitespace-pre-wrap break-all rounded-lg bg-slate-800 border border-slate-700 px-4 py-3 text-slate-300 font-mono leading-relaxed max-h-64 overflow-y-auto">
+                  {selectedEntry.message ?? '—'}
+                </pre>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
+
+function Row({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
+  return (
+    <div className="flex items-start gap-4">
+      <span className="w-32 shrink-0 text-slate-500 font-medium uppercase tracking-wide">{label}</span>
+      <span className={`text-slate-200 break-all ${mono ? 'font-mono' : ''}`}>{value}</span>
+    </div>
+  );
+}
 
 export default AuditLogPanel;

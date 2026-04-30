@@ -42,7 +42,7 @@ def test_ai_query_single_model_ok(client: TestClient):
 
     if response.status_code == 200:
         assert "request_id" in data
-        assert data["model"] == "llama3:latest"
+        assert data["model"] == "ollama:llama3"
         assert "output" in data
         assert "security" in data
         assert "meta" in data
@@ -66,7 +66,7 @@ def test_ai_query_model_field_accepted(client: TestClient):
     assert isinstance(data, dict)
 
     if response.status_code == 200:
-        assert data["model"] == "llama3:latest"
+        assert data["model"] == "ollama:mistral"
         assert "output" in data
         assert "security" in data
         assert "meta" in data
