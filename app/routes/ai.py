@@ -16,6 +16,7 @@ from app.utils.logger import log_request, mask_sensitive
 from app.auth.rbac import require_permission
 
 from app.middleware.api_key_auth import verify_api_key
+from app.services import model_router
 
 router = APIRouter()
 
