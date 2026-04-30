@@ -9,7 +9,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from pydantic import BaseModel, Field
 
 from app.services import dlp_engine
-from app.services.dlp_engine import DlpFinding, PolicyDecision, _severity_for_entity
+from app.services.dlp_engine import PolicyDecision
 from app.utils.logger import log_request, mask_sensitive
 
 # RBAC permission enforcement
@@ -168,21 +168,6 @@ async def ai_query(
     # ------------------------------------------------------------------
     input_redacted_text, input_findings = dlp_engine.scan_text(req.prompt)
     input_decision = dlp_engine.decide(input_findings)
-
-    # Merge any entities caught by DLPFilterMiddleware (which redacted before we saw them)
-    middleware_entities = getattr(request.state, "dlp_middleware_entities", set())
-    seen_types = {f.type for f in input_findings}
-    for entity_type in middleware_entities:
-        if entity_type not in seen_types:
-            input_findings.append(
-                DlpFinding(
-                    type=entity_type,
-                    count=1,
-                    severity=_severity_for_entity(entity_type),
-                )
-            )
-    if middleware_entities:
-        input_decision = dlp_engine.decide(input_findings)
 
     input_rules = [f.type for f in input_findings]
     input_risk = input_decision.risk_score

@@ -26,6 +26,8 @@ from starlette.middleware.base import BaseHTTPMiddleware
 # ---------------------------------------------------------------------------
 EXEMPT_PATHS = {
     "/health",
+    "/auth/login",
+    "/auth/me",
     "/api/metrics/summary",
     "/api/metrics/timeline",
     "/api/alerts/recent",

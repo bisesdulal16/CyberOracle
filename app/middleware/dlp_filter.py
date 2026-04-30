@@ -68,7 +68,6 @@ class DLPFilterMiddleware(BaseHTTPMiddleware):
                 # If anything was actually detected and redacted, replace request body
                 if detected_entities:
                     request._body = json.dumps(sanitized_body).encode("utf-8")
-                    request.state.dlp_middleware_entities = detected_entities
 
         # If any entities were detected anywhere in the request, send one alert
         if detected_entities:

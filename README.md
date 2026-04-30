@@ -1,153 +1,228 @@
 # CyberOracle
+
 ![CyberOracle CI](https://github.com/bisesdulal16/CyberOracle/actions/workflows/ci.yml/badge.svg)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![Build Status](https://img.shields.io/badge/build-passing-brightgreen.svg)]()
 [![Docker](https://img.shields.io/badge/docker-ready-blue.svg)]()
 [![Security](https://img.shields.io/badge/security-scanned-success.svg)]()
+[![Release](https://img.shields.io/badge/release-v1.0.0-blue.svg)](https://github.com/bisesdulal16/CyberOracle/releases/tag/v1.0.0)
 
-**CyberOracle** is a secure AI gateway and compliance automation platform designed to protect Large Language Model (LLM) workflows.  
-It enforces data security, compliance checks, and observability while enabling safe enterprise adoption of AI.  
-
----
-
-## Overview
-CyberOracle provides:
-- **Gateway** – FastAPI-based service running inside Docker with TLS-enabled reverse proxy.  
-- **Data Security** – Regex-based DLP (Data Loss Prevention), with planned integration of Microsoft Presidio and TruffleHog.  
-- **Compliance** – Policy checks (RBAC, red-team automation, continuous scanning).  
-- **Observability** – PostgreSQL logging with Grafana dashboards, Prometheus, and Loki.  
+CyberOracle is a secure AI gateway that sits between users and Ollama-hosted LLMs. Every request is scanned for sensitive data, checked against role-based access policies, logged with tamper-evident hashes, and monitored in real time — before and after the model responds.
 
 ---
 
-## Features
+## What It Does
 
-### Current (MVP – Semester 1)
-- Infrastructure setup with Docker + FastAPI + TLS  
-- Logging to PostgreSQL  
-- Regex-based DLP scanning  
-- Baseline security scans (Trivy, Bandit)  
-- Basic observability with Grafana  
-
-### Planned (Scaling – Semester 2)
-- Advanced DLP (Presidio, TruffleHog)  
-- Prompt Injection Firewall  
-- RBAC Enforcement  
-- Automated red-team testing with n8n  
-- Continuous monitoring (Prometheus, Loki, Jaeger)  
+- **DLP** — Detects and redacts PII/PHI (SSN, credit cards, API keys, emails, and 25+ more) using regex and Microsoft Presidio
+- **RBAC** — JWT-based access control with three roles: admin, developer, auditor
+- **Rate Limiting** — Per-IP, per-role sliding window enforced on every endpoint
+- **Encryption** — Fernet encryption on all log records + pgcrypto at the database level
+- **Anomaly Detection** — Flags unusual request rates, large payloads, high-risk DLP events, and repeated blocks
+- **Alerting** — Real-time Discord notifications on DLP violations and anomalies
+- **Audit Logging** — Every request written to PostgreSQL with SHA-256 integrity hash
+- **Grafana Dashboards** — DLP metrics, compliance panels (FERPA, HIPAA, NIST CSF), log analysis
+- **Scaling** — Docker Compose replica scaling + Kubernetes HPA (2–10 replicas)
 
 ---
 
 ## Tech Stack
-- **FastAPI** – API gateway framework  
-- **Docker & Traefik** – Containerization and TLS reverse proxy  
-- **PostgreSQL** – Logging database  
-- **Grafana & Prometheus** – Monitoring and visualization  
-- **Trivy & Bandit** – Security scanning tools  
+
+| Layer | Technology |
+|---|---|
+| API Gateway | FastAPI + Uvicorn |
+| AI Backend | Ollama (llama3.2:1b) |
+| DLP | Regex + Microsoft Presidio |
+| Auth | JWT HS256 + bcrypt |
+| Database | PostgreSQL 16 + SQLAlchemy async |
+| Encryption | Fernet (app-level) + pgcrypto (DB-level) |
+| Monitoring | Grafana + Loki + Promtail |
+| Containers | Docker + Docker Compose |
+| Orchestration | Kubernetes + HPA |
+| Infrastructure | Terraform |
+| CI/CD | GitHub Actions |
 
 ---
 
-## Getting Started
+## Prerequisites
 
-### Prerequisites
-- Docker & Docker Compose  
-- Python 3.10+  
-- Git  
-
-## Access
-- API Gateway: https://localhost:8000  
-- Grafana Dashboard: http://localhost:3000  
+- Docker >= 24 and Docker Compose >= 2
+- Python 3.10+
+- Git
+- `curl` and `jq`
 
 ---
 
-## Issue Tracking
-We use [GitHub Issues](https://github.com/your-org/cyberoracle/issues) with the following labels:  
-- **bug** – Problems or errors  
-- **feature** – New functionality  
-- **security** – Security-related tasks  
-- **documentation** – Documentation tasks  
+## Installation
+
+### Option 1 — Docker Compose (Recommended)
+
+```bash
+git clone https://github.com/bisesdulal16/CyberOracle.git
+cd CyberOracle
+
+cp .env.example .env
+# Edit .env — set JWT_SECRET_KEY, ADMIN_PASSWORD, DEV_PASSWORD, AUDITOR_PASSWORD
+
+docker compose up -d
+docker compose ps
+```
+
+| Service | URL |
+|---|---|
+| API | http://localhost:8000 |
+| Grafana | http://localhost:3001 |
+| PostgreSQL | localhost:5434 |
+
+### Option 2 — Manual
+
+```bash
+python -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+pre-commit install
+./start.sh          # initializes DB and starts API on port 8001
+```
+
+---
+
+## Environment Variables
+
+| Variable | Required | Description |
+|---|---|---|
+| `DATABASE_URL` | Yes | PostgreSQL DSN |
+| `JWT_SECRET_KEY` | Yes | Signing secret — minimum 32 bytes in production |
+| `ADMIN_PASSWORD` | Yes | Admin user password |
+| `DEV_PASSWORD` | Yes | Developer user password |
+| `AUDITOR_PASSWORD` | Yes | Auditor user password |
+| `DB_ENCRYPTION_ENABLED` | No | Set `true` to encrypt log messages at rest |
+| `DB_ENCRYPTION_KEY` | If above true | Fernet base64 key |
+| `DB_ENCRYPTION_KEY_ID` | No | Key version (default: `v1`) |
+| `OLLAMA_MODEL` | No | Model name (default: `llama3.2:1b`) |
+| `DISCORD_WEBHOOK_URL` | No | Webhook for DLP and anomaly alerts |
+
+---
+
+## Authentication
+
+```bash
+# Get a token
+TOKEN=$(curl -s -X POST http://localhost:8001/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"username":"admin","password":"changeme_admin"}' | jq -r '.access_token')
+
+curl -H "Authorization: Bearer $TOKEN" http://localhost:8001/auth/me
+
+# Authenticate all three roles at once
+bash scripts/auth_all_roles.sh
+
+# Export tokens as shell variables
+eval $(bash scripts/auth_all_roles.sh --export)
+```
+
+| Role | Permissions | Rate Limit |
+|---|---|---|
+| `admin` | Full access | 1000 req/min |
+| `developer` | AI queries, own logs, DLP rules | 100 req/min |
+| `auditor` | View all logs, compliance reports | 50 req/min |
+
+---
+
+## TLS Setup
+
+```bash
+# Self-signed (development)
+mkdir -p certs
+openssl req -x509 -newkey rsa:4096 -keyout certs/server.key -out certs/server.crt \
+  -days 365 -nodes -subj "/CN=localhost"
+bash scripts/run_https.sh
+
+# Verify
+curl -k https://localhost:8443/health
+```
+
+For Let's Encrypt production setup see [docs/TLS_SETUP.md](docs/TLS_SETUP.md).
+
+---
+
+## Deployment (Production Server)
+
+```bash
+ssh STUDENTS\bd0495@cyberoracle.eng.unt.edu
+cd /opt/CyberOracle
+
+git fetch --all && git reset --hard origin/main && git pull origin main
+
+sudo docker build -t cyberoracle-api .
+sudo docker compose down
+sudo docker compose up -d
+
+sudo docker compose ps
+curl http://localhost:8000/health
+```
+
+---
+
+## Scaling
+
+```bash
+# Docker Compose
+bash scripts/scale_gateway.sh 3
+
+# Kubernetes
+kubectl apply -f infra/k8s/cyberoracle-deployment.yaml
+kubectl apply -f infra/k8s/cyberoracle-service.yaml
+kubectl apply -f infra/k8s/hpa.yaml
+```
+
+---
+
+## Security Scripts
+
+```bash
+# Key rotation (re-encrypts all DB records, updates .env)
+python scripts/key_rotation.py --dry-run   # preview
+python scripts/key_rotation.py             # apply
+
+# Anomaly detection + Discord alerts
+python scripts/anomaly_alerting.py
+
+# Prompt injection red-team tests
+python scripts/run_prompt_injection_redteam.py
+```
+
+---
+
+## Testing
+
+```bash
+pytest --cov=app --cov-fail-under=80 -q
+```
 
 ---
 
 ## Documentation
-- [`/docs`](./docs) – Setup guides, architecture diagrams, and compliance checklists  
 
-## Threat Modeling
-- [STRIDE v1 Threat Model](./threat-modeling/STRIDE-v1.md)
-- [RBAC and DLP Policy Configuration](./threat-modeling/policy.yaml)
+| Document | Description |
+|---|---|
+| [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) | Full deployment guide |
+| [docs/TLS_SETUP.md](docs/TLS_SETUP.md) | TLS/HTTPS configuration |
+| [docs/threat-modeling/STRIDE.md](docs/threat-modeling/STRIDE.md) | STRIDE threat model |
+| [docs/threat-modeling/policy.yaml](docs/threat-modeling/policy.yaml) | RBAC roles, rate limits, DLP rules |
 
 ---
 
-🟩 **Deployment Guide**
-=======================
+## Release
 
-**1\. SSH Into the Server**
----------------------------
+Latest: [v1.0.0](https://github.com/bisesdulal16/CyberOracle/releases/tag/v1.0.0)
 
-`   ssh STUDENTS\\bd0495@cyberoracle.eng.unt.edu   `
+Includes Dockerfile, docker-compose.yml, Kubernetes manifests, Terraform configs, deployment guide, TLS setup guide, and all security scripts.
 
-**2\. Navigate to the Project Directory**
------------------------------------------
+```bash
+# Package a release locally
+bash scripts/package_release.sh v1.0.0
+```
 
-`   cd /opt/CyberOracle   `
-
-**3\. Pull the Latest Changes From GitHub**
--------------------------------------------
-
-Make sure no local changes exist. If unsure, reset safely:
-
-`   git fetch --all  git reset --hard origin/main   `
-
-Then pull:
-
-`   git pull origin main   `
-
-**4\. Rebuild the Docker Image**
---------------------------------
-
-Every backend update requires a rebuild:
-
-`   sudo docker build -t cyberoracle-api .   `
-
-**5\. Restart the Docker Stack**
---------------------------------
-
-This stops old containers and applies the new image:
-
-`   sudo docker compose down  sudo docker compose up -d   `
-
-**6\. Verify Containers Are Running**
--------------------------------------
-
-`   sudo docker ps   `
-
-Expected:
-
-*   cyberoracle-api → running
-    
-*   cyberoracle-db → running
-    
-*   cyberoracle-grafana → running
-    
-
-**7\. Test the API Health**
----------------------------
-
-`   curl http://localhost:8000/health   `
-
-Expected output:
-
-`   {"status": "ok", "message": "API healthy"}   `
-
-**8\. (Optional) View Logs**
-----------------------------
-
-Backend logs:
-
-`   sudo docker logs cyberoracle-api   `
-
-Compose logs:
-
-`   sudo docker compose logs -f   `
+---
 
 ## License
-This project is licensed under the [MIT License](LICENSE).
+
+[MIT](LICENSE)
