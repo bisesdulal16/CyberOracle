@@ -218,6 +218,7 @@ async def ai_query(
                 "redactions": [],
                 "blocked_reason": "Sensitive data detected in input.",
                 "phase": "input",
+                "input_redacted": input_redacted_text,
             },
             meta={"latency_ms": latency_ms},
         )
@@ -349,6 +350,7 @@ async def ai_query(
             "redactions": redactions_meta,
             "blocked_reason": blocked_reason,
             "phase": "output",
+            "input_redacted": input_redacted_text,
         },
         meta={"latency_ms": latency_ms},
     )

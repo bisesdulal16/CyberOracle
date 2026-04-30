@@ -47,16 +47,52 @@ api_key_recognizer = PatternRecognizer(
     context=["api", "key", "token", "apikey", "api_key", "api-token"],
 )
 
-# --- Generic SSN ---
+# --- Generic SSN (requires dashes to avoid false-positive on bank numbers) ---
 ssn_pattern = Pattern(
     name="Generic SSN",
-    regex=r"\b\d{3}[- ]?\d{2}[- ]?\d{4}\b",
-    score=0.7,
+    regex=r"\b\d{3}-\d{2}-\d{4}\b",
+    score=0.85,
 )
 ssn_recognizer = PatternRecognizer(
     supported_entity="GENERIC_SSN",
     patterns=[ssn_pattern],
     context=["ssn", "social", "security", "number", "identity", "tax"],
+)
+
+# --- Phone numbers ---
+phone_pattern = Pattern(
+    name="US Phone",
+    regex=r"\b(?:\+1[-.\s]?)?(?:\(\d{3}\)|\d{3})[-.\s]?\d{3}[-.\s]?\d{4}\b",
+    score=0.7,
+)
+phone_recognizer = PatternRecognizer(
+    supported_entity="PHONE_NUMBER",
+    patterns=[phone_pattern],
+    context=["phone", "call", "mobile", "contact", "reach"],
+)
+
+# --- IP addresses ---
+ip_pattern = Pattern(
+    name="IPv4 Address",
+    regex=r"\b(?:(?:25[0-5]|2[0-4]\d|[01]?\d\d?)\.){3}(?:25[0-5]|2[0-4]\d|[01]?\d\d?)\b",
+    score=0.7,
+)
+ip_recognizer = PatternRecognizer(
+    supported_entity="IP_ADDRESS",
+    patterns=[ip_pattern],
+    context=["ip", "address", "host", "server", "network", "internal"],
+)
+
+# --- Bank account numbers ---
+bank_pattern = Pattern(
+    name="Bank Account",
+    regex=r"(?i)(?:account|acct|routing)[\s#:]+[0-9]{8,17}",
+    score=0.75,
+)
+bank_recognizer = PatternRecognizer(
+    supported_entity="US_BANK_NUMBER",
+    patterns=[bank_pattern],
+    context=["bank", "account", "routing", "acct", "payroll"],
 )
 
 # ---------------------------------------------------------------------
@@ -65,6 +101,9 @@ ssn_recognizer = PatternRecognizer(
 analyzer = AnalyzerEngine()
 analyzer.registry.add_recognizer(api_key_recognizer)
 analyzer.registry.add_recognizer(ssn_recognizer)
+analyzer.registry.add_recognizer(phone_recognizer)
+analyzer.registry.add_recognizer(ip_recognizer)
+analyzer.registry.add_recognizer(bank_recognizer)
 anonymizer = AnonymizerEngine()
 
 
@@ -75,7 +114,9 @@ def presidio_scan(text: str, alert: bool = True):
     Returns:
         anonymized_text (str), entities (List[str])
     """
-    results = analyzer.analyze(text=text, entities=TARGET_ENTITIES, language="en")
+    results = analyzer.analyze(
+        text=text, entities=TARGET_ENTITIES, language="en", score_threshold=0.3
+    )
 
     if results and alert:
         entity_types = sorted({r.entity_type for r in results})
