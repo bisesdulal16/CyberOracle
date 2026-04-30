@@ -1,131 +1,57 @@
 ###############################################################################
 # CyberOracle Backend — Python Dependencies
-# -----------------------------------------------------------------------------
-# This file lists all Python dependencies required for running, testing, and
-# linting the CyberOracle FastAPI backend.
-#
-# To install everything:
-#   pip install -r requirements.txt
 ###############################################################################
 
 # -----------------------------------------------------------------------------
-# 🔹 Core Application Dependencies
+# Core Application Dependencies
 # -----------------------------------------------------------------------------
-fastapi==0.118.0            # Web framework for building the CyberOracle API
-uvicorn==0.37.0             # ASGI server to run FastAPI
-pydantic==2.12.0            # Data validation and settings management
-sqlalchemy[asyncio]==2.0.36  # Async ORM for Postgres integration
-asyncpg==0.29.0             # Async Postgres driver
-#psycopg2-binary==2.9.10     # Synchronous Postgres driver (fallback)
-python-dotenv==1.0.1        # Loads environment variables from .env files
-python-jose[cryptography]   # ADDED — required for JWT creation and verification
+fastapi>=0.136.1
+starlette>=1.0.0
+uvicorn==0.37.0
+pydantic==2.12.0
+sqlalchemy[asyncio]==2.0.36
+asyncpg==0.29.0
+python-dotenv>=1.2.2
+python-jose[cryptography]
+cryptography>=46.0.6
 
 # -----------------------------------------------------------------------------
-# 🔹 Data Privacy & DLP Modules
+# Data Privacy & DLP Modules
 # -----------------------------------------------------------------------------
-presidio-analyzer==2.2.357   # Microsoft Presidio — detects sensitive data
-presidio-anonymizer==2.2.357 # Microsoft Presidio — anonymizes sensitive data
+presidio-analyzer==2.2.357
+presidio-anonymizer==2.2.357
 
 # -----------------------------------------------------------------------------
-# 🔹 Testing & Coverage Tools
+# File Upload / Document Processing
 # -----------------------------------------------------------------------------
-pytest==8.3.3               # Core testing framework
-pytest-asyncio==0.24.0      # Async test support for pytest
-pytest-cov==5.0.0           # Test coverage reporting
-coverage==7.6.1             # Standalone coverage reporting
-httpx==0.27.0               # Async HTTP client for testing FastAPI endpoints
-pytest-dotenv==0.5.2        # Load .env.test automatically during pytest
-
-# -----------------------------------------------------------------------------
-# 🔹 Code Quality & Linting
-# -----------------------------------------------------------------------------
-flake8==7.1.1               # Linter for enforcing code style rules
-black==24.10.0              # Automatic code formatter
-
-# For upload file
 python-multipart
-
-# For document text extraction (Section 3 — Document Sanitizer)
-pdfplumber==0.11.4          # PDF text extraction
-python-docx==1.1.2          # DOCX text extraction
-
-# -----------------------------------------------------------------------------
-# 🔹 Development & Repo Security Tools
-# -----------------------------------------------------------------------------
-# These are developer-side utilities used for maintaining repository hygiene.
-# They are not required for running the production application, but ensure
-# code quality and prevent secret leakage during development.
-#
-# pre-commit:
-#   - Runs automated checks before each Git commit.
-#   - Executes tools like gitleaks (for secret scanning) and formatters (black/flake8).
-#   - Installed globally in the team VM environment for consistent security enforcement.
-#
-# Usage:
-#   1. pip install pre-commit
-#   2. pre-commit install
-#   3. Commits will automatically trigger gitleaks and style checks.
-#
-pre-commit==4.3.0           # Git hook manager for repo security and automatio
-
-###############################################################################
-# CyberOracle Backend — Python Dependencies
-# -----------------------------------------------------------------------------
-# (second identical block — kept exactly as-is, because you asked NOT to change)
-###############################################################################
+pdfplumber==0.11.9
+pdfminer-six==20251230
+python-docx==1.1.2
 
 # -----------------------------------------------------------------------------
-# 🔹 Core Application Dependencies
+# Testing & Coverage Tools
 # -----------------------------------------------------------------------------
-fastapi==0.118.0            # Web framework for building the CyberOracle API
-uvicorn==0.37.0             # ASGI server to run FastAPI
-pydantic==2.12.0            # Data validation and settings management
-sqlalchemy[asyncio]==2.0.36  # Async ORM for Postgres integration
-asyncpg==0.29.0             # Async Postgres driver
-#psycopg2-binary==2.9.10     # Synchronous Postgres driver (fallback)
-python-dotenv==1.0.1        # Loads environment variables from .env files
-python-jose[cryptography]   # ADDED AGAIN — matching your requirement
+pytest>=9.0.3
+pytest-asyncio>=1.3.0
+pytest-cov==5.0.0
+coverage==7.6.1
+httpx==0.27.0
+pytest-dotenv==0.5.2
 
 # -----------------------------------------------------------------------------
-# 🔹 Data Privacy & DLP Modules
+# Code Quality & Linting
 # -----------------------------------------------------------------------------
-presidio-analyzer==2.2.357   # Microsoft Presidio — detects sensitive data
-presidio-anonymizer==2.2.357 # Microsoft Presidio — anonymizes sensitive data
+flake8==7.1.1
+black>=26.3.1
 
 # -----------------------------------------------------------------------------
-# 🔹 Encryption (added for PSFR7 DB encryption)
+# Development & Repo Security Tools
 # -----------------------------------------------------------------------------
-cryptography==42.0.5      # Required for Fernet encryption used in PSFR7
+pre-commit==4.3.0
 
 # -----------------------------------------------------------------------------
-# 🔹 Testing & Coverage Tools
+# Dependency Vulnerability Scanning
 # -----------------------------------------------------------------------------
-pytest==8.3.3               # Core testing framework
-pytest-asyncio==0.24.0      # Async test support for pytest
-pytest-cov==5.0.0           # Test coverage reporting
-coverage==7.6.1             # Standalone coverage reporting
-httpx==0.27.0               # Async HTTP client for testing FastAPI endpoints
-
-# -----------------------------------------------------------------------------
-# 🔹 Code Quality & Linting
-# -----------------------------------------------------------------------------
-flake8==7.1.1               # Linter for enforcing code style rules
-black==24.10.0              # Automatic code formatter
-
-# -----------------------------------------------------------------------------
-# 🔹 Development & Repo Security Tools
-# -----------------------------------------------------------------------------
-pre-commit==4.3.0           # Git hook manager for repo security and automation
-
-# 🔹 Dependency Vulnerability Scanning
-# -----------------------------------------------------------------------------
-safety==3.2.0               # Dependency vulnerability scanner (pyup.io)
-pip-audit==2.8.0            # pip dependency vulnerability scanner
-
-###############################################################################
-# End of requirements.txt
-# -----------------------------------------------------------------------------
-# Notes:
-#  • Keep versions pinned for reproducible builds.
-#  • When updating, run `pip freeze > requirements.txt` to sync with CI.
-###############################################################################
+safety==3.2.0
+pip-audit==2.8.0
