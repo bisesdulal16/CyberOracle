@@ -53,8 +53,8 @@ services:
       - db
     volumes:
       - grafana_data:/var/lib/grafana
-      - ./infra/monitoring:/etc/grafana/provisioning/datasources
-      - ./grafana/provisioning:/etc/grafana/provisioning
+      # Grafana provisioning for datasources and dashboards
+      - ./infra/monitoring:/etc/grafana/provisioning
       - ./grafana/dashboards:/var/lib/grafana/dashboards
 
   nexus:

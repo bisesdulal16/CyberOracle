@@ -21,9 +21,9 @@ from app.db.db import AsyncSessionLocal
 from app.models import LogEntry
 from app.utils.db_encryption import encrypt_value
 
-# -------------------------------------------------------------------------
+# ------------------------------
 # Configure secure application logger
-# -------------------------------------------------------------------------
+# ------------------------------
 
 logger = logging.getLogger("cyberoracle")
 logger.setLevel(logging.INFO)
@@ -33,10 +33,10 @@ formatter = logging.Formatter("[%(asctime)s] %(levelname)s: %(message)s")
 handler.setFormatter(formatter)
 logger.addHandler(handler)
 
-# -------------------------------------------------------------------------
+# ------------------------------
 # Sensitive patterns — OWASP-ASVS 9.1.1
 # Covers query-string, JSON, header, and raw value formats
-# -------------------------------------------------------------------------
+# ------------------------------
 SENSITIVE_PATTERNS = {
     # Passwords in any format: password=abc, "password": "abc", password: abc
     "password": r"(?i)password['\"]?\s*[:=]\s*['\"]?[^\s,'\"\}&]+",
@@ -78,7 +78,7 @@ def mask_sensitive(text: str) -> str:
         for debugging.
 
     Notes (OWASP-ASVS 9.1.1)
-    ------------------------
+    --------
     Logging secrets is a critical vulnerability that can lead
     to credential theft, compliance violations, and data breaches.
     """
@@ -169,7 +169,7 @@ async def log_request(
     DB_ENCRYPTION_ENABLED=true.
 
     Security Notes (OWASP-ASVS 9.3, 9.5)
-    --------------------------------------
+    --------
     - mask_sensitive() applied as defence-in-depth.
     - Integrity hash computed before encryption for verification.
     - Message encrypted at rest.
@@ -205,6 +205,7 @@ async def log_request(
         else:
             policy_decision = normalized_decision
 
+    # Skip DB insert during tests (PYTEST=1)
     if os.getenv("PYTEST") == "1":
         return
 
