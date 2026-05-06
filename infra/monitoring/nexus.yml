@@ -1,0 +1,14 @@
+services:
+  nexus:
+    image: sonatype/nexus3:3.68.0
+    container_name: cyberoracle-nexus
+    restart: unless-stopped
+    ports:
+      - "8081:8081"
+      - "8083:8083"
+    volumes:
+      - cyberoracle_nexus-data:/nexus-data
+
+volumes:
+  cyberoracle_nexus-data:
+    external: true
