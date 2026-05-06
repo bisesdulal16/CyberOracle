@@ -11,6 +11,7 @@ OWASP Logging Guidance (OWASP-ASVS 9.1):
 - Compute integrity hash for tamper-evidence (OWASP-ASVS 9.5).
 """
 
+import os
 import hashlib
 import logging
 import os
@@ -21,9 +22,9 @@ from app.db.db import AsyncSessionLocal
 from app.models import LogEntry
 from app.utils.db_encryption import encrypt_value
 
-# -------------------------------------------------------------------------
+# ------------------------------
 # Configure secure application logger
-# -------------------------------------------------------------------------
+# ------------------------------
 
 logger = logging.getLogger("cyberoracle")
 logger.setLevel(logging.INFO)
@@ -33,10 +34,10 @@ formatter = logging.Formatter("[%(asctime)s] %(levelname)s: %(message)s")
 handler.setFormatter(formatter)
 logger.addHandler(handler)
 
-# -------------------------------------------------------------------------
+# ------------------------------
 # Sensitive patterns — OWASP-ASVS 9.1.1
 # Covers query-string, JSON, header, and raw value formats
-# -------------------------------------------------------------------------
+# ------------------------------
 SENSITIVE_PATTERNS = {
     # Passwords in any format: password=abc, "password": "abc", password: abc
     "password": r"(?i)password['\"]?\s*[:=]\s*['\"]?[^\s,'\"\}&]+",
@@ -78,7 +79,7 @@ def mask_sensitive(text: str) -> str:
         for debugging.
 
     Notes (OWASP-ASVS 9.1.1)
-    ------------------------
+    --------
     Logging secrets is a critical vulnerability that can lead
     to credential theft, compliance violations, and data breaches.
     """
@@ -169,7 +170,7 @@ async def log_request(
     DB_ENCRYPTION_ENABLED=true.
 
     Security Notes (OWASP-ASVS 9.3, 9.5)
-    --------------------------------------
+    --------
     - mask_sensitive() applied as defence-in-depth.
     - Integrity hash computed before encryption for verification.
     - Message encrypted at rest.
@@ -205,20 +206,55 @@ async def log_request(
     if os.getenv("PYTEST") == "1":
         return
 
-    async with AsyncSessionLocal() as session:
-        entry = LogEntry(
-            endpoint=endpoint,
-            method=method,
-            status_code=status_code,
-            message=stored_message,
-            event_type=event_type,
-            frameworks=frameworks_str,
-            decision=decision,
-            severity=severity,
-            risk_score=risk_score,
-            source=source,
-            policy_decision=policy_decision,
-            integrity_hash=integrity_hash,
+    # Normalize policy_decision for dashboards/ISCM panels.
+    # Grafana compliance dashboard expects: block, redact, allow.
+    if not policy_decision and decision:
+        normalized_decision = decision.strip().lower()
+
+        if normalized_decision in ("block", "blocked"):
+            policy_decision = "block"
+        elif normalized_decision in ("redact", "redacted"):
+            policy_decision = "redact"
+        elif normalized_decision in ("allow", "allowed"):
+            policy_decision = "allow"
+        else:
+            policy_decision = normalized_decision
+
+    # Skip DB insert during tests (PYTEST=1)
+    print(f"[log_request] PYTEST={os.getenv('PYTEST')}", flush=True)
+
+    if os.getenv("PYTEST") == "1":
+        print("[log_request] PYTEST=1 detected, skipping DB log", flush=True)
+        return
+
+    try:
+        print(
+            f"[log_request] inserting endpoint={endpoint} "
+            f"decision={decision} policy_decision={policy_decision} "
+            f"severity={severity} frameworks={frameworks_str}",
+            flush=True,
         )
-        session.add(entry)
-        await session.commit()
+
+        async with AsyncSessionLocal() as session:
+            entry = LogEntry(
+                endpoint=endpoint,
+                method=method,
+                status_code=status_code,
+                message=stored_message,
+                event_type=event_type,
+                frameworks=frameworks_str,
+                decision=decision,
+                severity=severity,
+                risk_score=risk_score,
+                source=source,
+                policy_decision=policy_decision,
+                integrity_hash=integrity_hash,
+            )
+            session.add(entry)
+            await session.commit()
+            print("[log_request] DB commit successful", flush=True)
+
+    except Exception as exc:
+        print(f"[log_request] DB commit failed: {type(exc).__name__}: {exc}", flush=True)
+        raise
+
