@@ -133,10 +133,22 @@ See [`policy.yaml`](./policy.yaml) for:
 
 ---
 
+## Known Limitations
+
+| Limitation | Description | Recommendation |
+|---|---|---|
+| Obfuscated SSN formats | Regex only detects dashed format `\d{3}-\d{2}-\d{4}`. Formats like `123456789` (no dashes) bypass detection. | Add LLM-based semantic check as second-pass filter |
+| Unformatted credit cards | 16-digit numbers without separators may be missed by regex if they resemble other numeric data. | Luhn algorithm check as additional validation layer |
+| Context-dependent PII | Presidio relies on context clues — isolated numbers without labels may not be recognized. | Fine-tune Presidio recognizers with domain-specific training data |
+| Deliberate obfuscation | Attackers who intentionally format PII to bypass regex are not fully covered. | LLM-level semantic understanding required for full coverage |
+
+---
+
 ## Notes for Future Enhancements
 - Integration with external SIEM (Splunk / ELK / Grafana)
 - OAuth2 / SSO authentication
 - Advanced semantic firewall for prompt injection
+- LLM-based second-pass semantic check for obfuscated PII formats
 - Automated red-team execution scheduling
 - Infrastructure security with Terraform
 
