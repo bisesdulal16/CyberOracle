@@ -240,6 +240,7 @@ async def log_request(
             print("[log_request] DB commit successful", flush=True)
 
     except Exception as exc:
-        print(f"[log_request] DB commit failed: {type(exc).__name__}: {exc}", flush=True)
+        print(
+            f"[log_request] DB commit failed: {type(exc).__name__}: {exc}", flush=True
+        )
         raise
-
