@@ -97,9 +97,9 @@ jobs:
           REGISTRY="${REGISTRY%/}"
           REPO="${REPO#/}"
           REPO="${REPO%/}"
-      
+
           FULL_IMAGE="${REGISTRY}/${REPO}/${IMAGE}"
-      
+
           echo "Building image with tags:"
           echo "  $FULL_IMAGE:$VERSION"
           echo "  $FULL_IMAGE:latest"
