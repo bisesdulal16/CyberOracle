@@ -28,8 +28,8 @@ Error codes
 
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-
 from app.auth.jwt_utils import verify_token
+from app.auth.policy_loader import get_role_permissions
 
 # HTTPBearer extracts "Authorization: Bearer <token>" from the request
 _bearer = HTTPBearer(auto_error=False)
@@ -77,6 +77,73 @@ def require_roles(*allowed_roles: str):
                     f"Access denied. Required role(s): {', '.join(allowed_roles)}. "
                     f"Your role: {role or 'none'}."
                 ),
+            )
+
+        return payload
+
+    return _enforce
+
+
+# ------------------------------------------------------------
+# ADDED: Permission-based RBAC enforcement (enterprise model)
+# ------------------------------------------------------------
+
+
+def require_permission(permission: str):
+    """
+    Dependency factory that enforces permission-level RBAC
+    using the policy.yaml configuration.
+
+    Example:
+        Depends(require_permission("view_all_logs"))
+    """
+
+    async def _enforce(
+        credentials: HTTPAuthorizationCredentials = Depends(_bearer),
+    ) -> dict:
+
+        # ------------------------------------------------------------------
+        # 1. Ensure a token is provided
+        # ------------------------------------------------------------------
+        if credentials is None:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Authentication required. Provide a Bearer token.",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+
+        # ------------------------------------------------------------------
+        # 2. Verify JWT
+        # ------------------------------------------------------------------
+        try:
+            payload = verify_token(credentials.credentials)
+        except ValueError:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid or expired token.",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+
+        role = payload.get("role")
+
+        # ------------------------------------------------------------------
+        # 3. Load permissions for the role from policy.yaml
+        # ------------------------------------------------------------------
+        permissions = get_role_permissions(role)
+
+        # ------------------------------------------------------------------
+        # 4. Admin override
+        # ------------------------------------------------------------------
+        if "access_all_endpoints" in permissions:
+            return payload
+
+        # ------------------------------------------------------------------
+        # 5. Enforce permission
+        # ------------------------------------------------------------------
+        if permission not in permissions:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"Permission '{permission}' denied for role '{role}'",
             )
 
         return payload

@@ -95,19 +95,37 @@ def load_tests(path: str = "datasets/prompt_injection_tests_v1.json") -> List[PI
     return tests
 
 
+def get_auth_token() -> str:
+    """Authenticate with CyberOracle and return a Bearer token."""
+    url = f"{BASE_URL.rstrip('/')}/auth/login"
+    resp = requests.post(
+        url,
+        json={
+            "username": os.getenv("CYBERORACLE_USER", "admin"),
+            "password": os.getenv("CYBERORACLE_PASS", "changeme_admin"),
+        },
+        timeout=10,
+    )
+    resp.raise_for_status()
+    return resp.json()["access_token"]
+
+
+_TOKEN: str = ""
+
+
 def call_chat_endpoint(message: str) -> Dict[str, Any]:
     """
-    Send a single prompt to the gateway endpoint.
-
-    Currently this targets /api/scan with JSON: {"message": "..."}.
-
-    If your real LLM/chat endpoint uses a different JSON contract,
-    change REQUEST_FIELD or this payload shape later.
+    Send a single prompt to the CyberOracle DLP scan endpoint with auth.
     """
-    url = f"{BASE_URL.rstrip('/')}{CHAT_ENDPOINT}"
-    payload = {REQUEST_FIELD: message}
+    global _TOKEN
+    if not _TOKEN:
+        _TOKEN = get_auth_token()
 
-    resp = requests.post(url, json=payload, timeout=30)
+    url = f"{BASE_URL.rstrip('/')}{CHAT_ENDPOINT}"
+    payload = {"text": message}
+    headers = {"Authorization": f"Bearer {_TOKEN}"}
+
+    resp = requests.post(url, json=payload, headers=headers, timeout=30)
     resp.raise_for_status()
     try:
         return resp.json()

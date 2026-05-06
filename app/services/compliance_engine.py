@@ -10,11 +10,16 @@ def evaluate_compliance(text: str, entities: List[str]) -> Dict[str, object]:
     # HIPAA-like detection
     if "US_SOCIAL_SECURITY_NUMBER" in entities:
         frameworks.add("HIPAA")
-    if any(word in text_lower for word in ["patient", "diagnosis", "treatment", "medical"]):
+    if any(
+        word in text_lower for word in ["patient", "diagnosis", "treatment", "medical"]
+    ):
         frameworks.add("HIPAA")
 
     # FERPA-like detection
-    if any(word in text_lower for word in ["student", "student id", "gpa", "transcript", "grade"]):
+    if any(
+        word in text_lower
+        for word in ["student", "student id", "gpa", "transcript", "grade"]
+    ):
         frameworks.add("FERPA")
     if "@unt.edu" in text_lower:
         frameworks.add("FERPA")
@@ -38,4 +43,3 @@ def evaluate_compliance(text: str, entities: List[str]) -> Dict[str, object]:
         "decision": "allow",
         "severity": "low",
     }
-

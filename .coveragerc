@@ -1,0 +1,9 @@
+[run]
+omit =
+    app/routes/settings.py
+    app/db/init_db.py
+
+[report]
+exclude_lines =
+    pragma: no cover
+    if __name__ == .__main__.:

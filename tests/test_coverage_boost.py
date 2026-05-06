@@ -9,7 +9,7 @@ Targets:
 
 import asyncio
 import os
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 from fastapi.testclient import TestClient
@@ -174,23 +174,46 @@ def test_login_returns_bearer_token_type():
 # ---------------------------------------------------------------------------
 
 
-def test_dlp_scan_with_valid_admin_token():
+# ---------------------------------------------------------------------------
+# /api/scan — requires JWT; admin/developer allowed, auditor forbidden
+# ---------------------------------------------------------------------------
+
+
+def test_dlp_scan_with_valid_admin_token(monkeypatch):
+    from unittest.mock import AsyncMock
+    import app.routes.dlp as dlp_module
+
+    monkeypatch.setattr(dlp_module, "log_request", AsyncMock())
+
     token = _get_token()
-    response = client.post(
-        "/api/scan",
-        json={"text": "My SSN is 123-45-6789"},
-        headers={"Authorization": f"Bearer {token}"},
-    )
+    # Patch log_request to avoid asyncpg concurrent-operation errors in the
+    # synchronous TestClient context (the real DB call is covered elsewhere).
+    with patch("app.routes.dlp.log_request", new_callable=AsyncMock):
+        response = client.post(
+            "/api/scan",
+            json={"text": "My SSN is 123-45-6789"},
+            headers={"Authorization": f"Bearer {token}"},
+        )
     assert response.status_code == 200
     assert "redacted" in response.json()
 
 
-def test_dlp_scan_no_token_returns_401():
+def test_dlp_scan_no_token_returns_401(monkeypatch):
+    from unittest.mock import AsyncMock
+    import app.routes.dlp as dlp_module
+
+    monkeypatch.setattr(dlp_module, "log_request", AsyncMock())
+
     response = client.post("/api/scan", json={"text": "hello"})
     assert response.status_code == 401
 
 
-def test_dlp_scan_invalid_token_returns_401():
+def test_dlp_scan_invalid_token_returns_401(monkeypatch):
+    from unittest.mock import AsyncMock
+    import app.routes.dlp as dlp_module
+
+    monkeypatch.setattr(dlp_module, "log_request", AsyncMock())
+
     response = client.post(
         "/api/scan",
         json={"text": "hello"},
@@ -199,7 +222,12 @@ def test_dlp_scan_invalid_token_returns_401():
     assert response.status_code == 401
 
 
-def test_dlp_scan_wrong_role_returns_403():
+def test_dlp_scan_wrong_role_returns_403(monkeypatch):
+    from unittest.mock import AsyncMock
+    import app.routes.dlp as dlp_module
+
+    monkeypatch.setattr(dlp_module, "log_request", AsyncMock())
+
     token = _get_token(
         username=_auditor_username(),
         password=_auditor_password(),

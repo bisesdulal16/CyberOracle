@@ -23,13 +23,9 @@ async def engine():
     )
 
     async with test_engine.begin() as conn:
-        await conn.run_sync(Base.metadata.drop_all)
         await conn.run_sync(Base.metadata.create_all)
 
     yield test_engine
-
-    async with test_engine.begin() as conn:
-        await conn.run_sync(Base.metadata.drop_all)
 
     await test_engine.dispose()
 
@@ -48,7 +44,6 @@ async def session(engine):
     async with TestingSessionLocal() as db_session:
         yield db_session
 
-        # Safe teardown: only rollback if the session is still active.
         try:
             if db_session.in_transaction():
                 await db_session.rollback()

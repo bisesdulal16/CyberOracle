@@ -8,9 +8,12 @@ import {
   ChevronLeftIcon,
   ChevronRightIcon,
   FunnelIcon,
+  ShieldCheckIcon,
+  ShieldExclamationIcon,
+  XMarkIcon,
 } from '@heroicons/react/24/outline';
 
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:8000';
+const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:8001';
 
 const PAGE_SIZE = 20;
 
@@ -26,6 +29,8 @@ type LogEntry = {
   policy_decision: string | null;
   message: string | null;
   created_at: string | null;
+  // null = pre-dates integrity hashing, true = verified, false = tampered
+  integrity_verified: boolean | null;
 };
 
 type Filters = {
@@ -73,10 +78,37 @@ function cap(s: string | null): string {
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
+function IntegrityBadge({ verified }: { verified: boolean | null }) {
+  // null = old entry, no hash stored yet — show nothing
+  if (verified === null) return <span className="text-slate-600">—</span>;
+
+  if (verified) {
+    return (
+      <span
+        className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full font-semibold bg-emerald-400/10 text-emerald-400 border border-emerald-500/20"
+        title="Log integrity verified — entry has not been tampered with"
+      >
+        <ShieldCheckIcon className="w-3 h-3" />
+        OK
+      </span>
+    );
+  }
+
+  return (
+    <span
+      className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full font-semibold bg-red-400/10 text-red-400 border border-red-500/20"
+      title="WARNING: Log integrity check failed — this entry may have been tampered with"
+    >
+      <ShieldExclamationIcon className="w-3 h-3" />
+      TAMPERED
+    </span>
+  );
+}
+
 function exportCSV(logs: LogEntry[]) {
   const headers = [
     'ID', 'Timestamp', 'Endpoint', 'Method', 'Status',
-    'Event Type', 'Severity', 'Risk Score', 'Policy Decision', 'Source', 'Message',
+    'Event Type', 'Severity', 'Risk Score', 'Policy Decision', 'Source', 'Message', 'Integrity',
   ];
   const rows = logs.map((e) => [
     e.id,
@@ -90,6 +122,7 @@ function exportCSV(logs: LogEntry[]) {
     e.policy_decision ?? '',
     e.source ?? '',
     (e.message ?? '').replace(/,/g, ' '),
+    e.integrity_verified === null ? 'N/A' : e.integrity_verified ? 'Verified' : 'TAMPERED',
   ]);
 
   const csv = [headers, ...rows]
@@ -119,6 +152,7 @@ const AuditLogPanel: React.FC = () => {
     event_type: '',
     policy_decision: '',
   });
+  const [selectedEntry, setSelectedEntry] = useState<LogEntry | null>(null);
 
   const fetchLogs = useCallback(
     async (currentPage: number, currentFilters: Filters) => {
@@ -162,6 +196,9 @@ const AuditLogPanel: React.FC = () => {
     setFilters({ severity: '', event_type: '', policy_decision: '' });
   }
 
+  // Warn if any visible entries have failed integrity checks
+  const tamperedCount = logs.filter((l) => l.integrity_verified === false).length;
+
   const firstRecord = page * PAGE_SIZE + 1;
   const lastRecord = page * PAGE_SIZE + logs.length;
   const activeFilters = Object.values(filters).some((v) => v !== '');
@@ -186,6 +223,22 @@ const AuditLogPanel: React.FC = () => {
           Export CSV
         </button>
       </div>
+
+      {/* Tamper warning banner */}
+      {tamperedCount > 0 && (
+        <div className="flex items-center gap-3 rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3">
+          <ShieldExclamationIcon className="w-5 h-5 text-red-400 shrink-0" />
+          <div>
+            <p className="text-sm font-semibold text-red-400">
+              Integrity warning — {tamperedCount} tampered {tamperedCount === 1 ? 'entry' : 'entries'} detected
+            </p>
+            <p className="text-xs text-red-400/70 mt-0.5">
+              One or more log entries have failed their integrity check. These records may have been
+              modified after storage. Escalate to an administrator immediately.
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* Error banner */}
       {fetchError && (
@@ -222,8 +275,8 @@ const AuditLogPanel: React.FC = () => {
             <option value="ai_query">AI Query</option>
             <option value="ai_query_blocked">AI Query Blocked</option>
             <option value="dlp_alert">DLP Alert</option>
-            <option value="auth_failure">Auth Failure</option>
-            <option value="rate_limit">Rate Limit</option>
+            <option value="document_sanitize">Document Sanitize</option>
+            <option value="ai_query_model_error">Model Error</option>
           </select>
 
           <select
@@ -262,13 +315,14 @@ const AuditLogPanel: React.FC = () => {
                 <th className="px-4 py-3 font-semibold text-slate-400 whitespace-nowrap">Severity</th>
                 <th className="px-4 py-3 font-semibold text-slate-400 whitespace-nowrap">Risk</th>
                 <th className="px-4 py-3 font-semibold text-slate-400 whitespace-nowrap">Decision</th>
+                <th className="px-4 py-3 font-semibold text-slate-400 whitespace-nowrap">Integrity</th>
                 <th className="px-4 py-3 font-semibold text-slate-400">Message</th>
               </tr>
             </thead>
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={9} className="px-4 py-10 text-center">
+                  <td colSpan={10} className="px-4 py-10 text-center">
                     <div className="flex justify-center">
                       <Spinner />
                     </div>
@@ -276,7 +330,7 @@ const AuditLogPanel: React.FC = () => {
                 </tr>
               ) : logs.length === 0 ? (
                 <tr>
-                  <td colSpan={9} className="px-4 py-10 text-center text-slate-500">
+                  <td colSpan={10} className="px-4 py-10 text-center text-slate-500">
                     {activeFilters ? 'No logs match the selected filters.' : 'No audit logs found.'}
                   </td>
                 </tr>
@@ -284,7 +338,12 @@ const AuditLogPanel: React.FC = () => {
                 logs.map((entry) => (
                   <tr
                     key={entry.id}
-                    className="border-b border-slate-800 hover:bg-slate-800 transition"
+                    onClick={() => setSelectedEntry(entry)}
+                    className={`border-b border-slate-800 transition cursor-pointer ${
+                      entry.integrity_verified === false
+                        ? 'bg-red-500/5 hover:bg-red-500/10'
+                        : 'hover:bg-slate-800'
+                    }`}
                   >
                     <td className="px-4 py-2.5 whitespace-nowrap text-slate-500" title={entry.created_at ?? ''}>
                       {relativeTime(entry.created_at)}
@@ -336,6 +395,9 @@ const AuditLogPanel: React.FC = () => {
                         <span className="text-slate-600">—</span>
                       )}
                     </td>
+                    <td className="px-4 py-2.5 whitespace-nowrap">
+                      <IntegrityBadge verified={entry.integrity_verified} />
+                    </td>
                     <td
                       className="px-4 py-2.5 text-slate-500 max-w-[220px] truncate"
                       title={entry.message ?? ''}
@@ -377,8 +439,69 @@ const AuditLogPanel: React.FC = () => {
           </div>
         )}
       </div>
+
+      {/* Detail modal */}
+      {selectedEntry && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+          onClick={() => setSelectedEntry(null)}
+        >
+          <div
+            className="w-full max-w-2xl rounded-xl border border-slate-700 bg-slate-900 shadow-2xl overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between px-5 py-4 border-b border-slate-800">
+              <h3 className="text-sm font-semibold text-slate-100">
+                Log Entry #{selectedEntry.id}
+              </h3>
+              <button
+                onClick={() => setSelectedEntry(null)}
+                className="text-slate-500 hover:text-slate-300 transition"
+              >
+                <XMarkIcon className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="px-5 py-4 space-y-3 text-xs">
+              <Row label="Time" value={selectedEntry.created_at ?? '—'} />
+              <Row label="Endpoint" value={selectedEntry.endpoint} mono />
+              <Row label="Method" value={selectedEntry.method} />
+              <Row label="Status" value={String(selectedEntry.status_code)} />
+              <Row label="Event Type" value={selectedEntry.event_type ?? '—'} />
+              <Row label="Severity" value={selectedEntry.severity ?? '—'} />
+              <Row label="Risk Score" value={selectedEntry.risk_score != null ? selectedEntry.risk_score.toFixed(4) : '—'} />
+              <Row label="Policy Decision" value={selectedEntry.policy_decision ?? '—'} />
+              <Row label="Source" value={selectedEntry.source ?? '—'} />
+              <Row
+                label="Integrity"
+                value={
+                  selectedEntry.integrity_verified === true
+                    ? 'Verified ✓'
+                    : selectedEntry.integrity_verified === false
+                    ? 'TAMPERED ✗'
+                    : 'Not hashed'
+                }
+              />
+              <div>
+                <p className="text-slate-500 mb-1 font-medium uppercase tracking-wide">Message</p>
+                <pre className="whitespace-pre-wrap break-all rounded-lg bg-slate-800 border border-slate-700 px-4 py-3 text-slate-300 font-mono leading-relaxed max-h-64 overflow-y-auto">
+                  {selectedEntry.message ?? '—'}
+                </pre>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
+
+function Row({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
+  return (
+    <div className="flex items-start gap-4">
+      <span className="w-32 shrink-0 text-slate-500 font-medium uppercase tracking-wide">{label}</span>
+      <span className={`text-slate-200 break-all ${mono ? 'font-mono' : ''}`}>{value}</span>
+    </div>
+  );
+}
 
 export default AuditLogPanel;

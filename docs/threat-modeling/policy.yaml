@@ -1,4 +1,4 @@
-# CyberOracle RBAC & DLP Policy Configuration v1
+# CyberOracle RBAC & DLP Policy Configuration
 # Author: Pradip Sapkota
 # Purpose: Define access control, DLP enforcement, alert triggers, and compliance baselines
 # Used by: FastAPI gateway middleware, CI compliance mapping, and Capstone II automation.
