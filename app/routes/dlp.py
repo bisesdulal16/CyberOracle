@@ -51,6 +51,12 @@ async def scan_text(
     redacted, entities = presidio_scan(payload.text)
     compliance = evaluate_compliance(payload.text, entities)
 
+    print(
+        f"[scan_text] before log_request frameworks={compliance['frameworks']} "
+        f"decision={compliance['decision']} severity={compliance['severity']}",
+        flush=True,
+    )
+
     await log_request(
         endpoint="/api/scan",
         method="POST",
@@ -58,8 +64,11 @@ async def scan_text(
         message=redacted,
         frameworks=compliance["frameworks"],
         decision=compliance["decision"],
+        policy_decision=compliance["decision"],
         severity=compliance["severity"],
     )
+
+    print("[scan_text] after log_request commit path completed", flush=True)
 
     return ScanResponse(
         redacted=redacted,

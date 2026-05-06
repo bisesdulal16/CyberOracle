@@ -4,14 +4,14 @@ services:
   # PostgreSQL database service
   db:
     image: postgres:16
-    container_name: cyberoracle-db
+    #container_name: cyberoracle-db
     restart: unless-stopped
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
       POSTGRES_DB: cyberoracle 
-    ports:
-      - "5434:5432"
+    #ports:
+     # - "5434:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
 
@@ -24,7 +24,7 @@ services:
     volumes:
       - .:/app
     ports:
-      - "8000-8010:8000"
+      - "8004:8000"
     environment:
       - DATABASE_URL=postgresql+asyncpg://postgres:postgres@db:5432/cyberoracle
       - DB_ENCRYPTION_ENABLED=true
@@ -43,16 +43,81 @@ services:
   # Grafana monitoring dashboard
   grafana:
     image: grafana/grafana:latest
-    container_name: cyberoracle-grafana
+   #container_name: cyberoracle-grafana
     restart: unless-stopped
-    ports:
-      - "3001:3000"
+   # ports:
+    #  - "3001:3000"
     environment:
       - GF_SECURITY_ADMIN_PASSWORD=admin
     depends_on:
       - db
     volumes:
-      - grafana_data:/var/lib/grafana  
+      - grafana_data:/var/lib/grafana
+      # Grafana provisioning for datasources and dashboards
+      - ./infra/monitoring:/etc/grafana/provisioning
+      - ./grafana/dashboards:/var/lib/grafana/dashboards
+
+  nexus:
+    image: sonatype/nexus3:3.68.0
+    container_name: cyberoracle-nexus
+    restart: unless-stopped
+    ports:
+      # Nexus UI
+      - "8081:8081"
+      # Docker registry
+      - "8083:8083"
+    volumes:
+      - nexus-data:/nexus-data
+    environment:
+      - INSTALL4J_ADD_VM_PARAMS=-Xms1200m -Xmx1200m -XX:MaxDirectMemorySize=2g
+
+  prometheus:
+    image: prom/prometheus:v2.55.0
+    container_name: cyberoracle-prometheus
+    restart: unless-stopped
+    volumes:
+      - ./infra/monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    ports:
+      - "9090:9090"
+    depends_on:
+      - api
+
+  loki:
+    image: grafana/loki:2.9.0
+    container_name: cyberoracle-loki
+    restart: unless-stopped
+    command: -config.file=/etc/loki/loki-config.yml
+    volumes:
+      - ./infra/monitoring/loki-config.yml:/etc/loki/loki-config.yml:ro
+      - loki-data:/loki
+    ports:
+      - "3100:3100"
+
+  promtail:
+    image: grafana/promtail:2.9.0
+    container_name: cyberoracle-promtail
+    restart: unless-stopped
+    command: -config.file=/etc/promtail/promtail-config.yml
+    volumes:
+      - ./infra/monitoring/promtail-config.yml:/etc/promtail/promtail-config.yml:ro
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - /var/log:/var/log:ro
+    depends_on:
+      - loki
+
+  minio:
+    image: minio/minio:latest
+    container_name: cyberoracle-minio
+    restart: unless-stopped
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    command: server /data --console-address ":9001"
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio-data:/data
 
   # ---------------------------------------------------------------------------
   # ELK Stack — reads from the existing PostgreSQL logs table via JDBC.
@@ -112,6 +177,9 @@ services:
 volumes:
   pgdata:
   grafana_data:
+  nexus-data:
+  loki-data:
+  minio-data:
   esdata:
   logstash_data:
 
