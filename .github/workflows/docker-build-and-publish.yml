@@ -91,14 +91,12 @@ jobs:
           IMAGE="${{ env.IMAGE_NAME }}"
           VERSION="${{ steps.version.outputs.version }}"
           TS="${{ steps.meta.outputs.timestamp }}"
-      
+
           REGISTRY="${REGISTRY#http://}"
           REGISTRY="${REGISTRY#https://}"
           REGISTRY="${REGISTRY%/}"
           REPO="${REPO#/}"
           REPO="${REPO%/}"
-
-          FULL_IMAGE="${REGISTRY}/${REPO}/${IMAGE}"
 
           if [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
             if [[ -z "$REGISTRY" || -z "$REPO" ]]; then
@@ -118,13 +116,13 @@ jobs:
           echo "  $FULL_IMAGE:$VERSION"
           echo "  $FULL_IMAGE:latest"
           echo "  $FULL_IMAGE:$TS"
-      
+
           docker build \
             -t "$FULL_IMAGE:$VERSION" \
             -t "$FULL_IMAGE:latest" \
             -t "$FULL_IMAGE:$TS" \
             .
-
+            
       # Only push to Nexus when on main
       - name: Push Docker image to Nexus
         if: github.ref == 'refs/heads/main'
