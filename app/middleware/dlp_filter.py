@@ -69,6 +69,16 @@ class DLPFilterMiddleware(BaseHTTPMiddleware):
                 if detected_entities:
                     request._body = json.dumps(sanitized_body).encode("utf-8")
 
+        # Store DLP metadata on request.state
+        request.state.dlp_detected = bool(detected_entities)
+        request.state.dlp_entities = (
+            list(detected_entities) if detected_entities else []
+        )
+        request.state.dlp_redacted = bool(detected_entities)
+        request.state.dlp_policy_decision = "redact" if detected_entities else "allow"
+        request.state.dlp_risk_score = 0.8 if detected_entities else 0.0
+        request.state.dlp_severity = "high" if detected_entities else "low"
+
         # If any entities were detected anywhere in the request, send one alert
         if detected_entities:
             message = "DLP Alert: Sensitive data detected in request — " + ", ".join(

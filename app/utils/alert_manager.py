@@ -17,7 +17,6 @@ from email.mime.text import MIMEText
 import requests
 from datetime import datetime, timezone
 
-
 DISCORD_WEBHOOK_URL = os.getenv("DISCORD_WEBHOOK_URL")
 SLACK_WEBHOOK_URL = os.getenv("SLACK_WEBHOOK_URL")
 

@@ -4,7 +4,6 @@ from fastapi.security import HTTPAuthorizationCredentials
 
 import app.auth.rbac as rbac
 
-
 # --------------------------------------------------
 # Helper for creating fake Authorization credentials
 # --------------------------------------------------

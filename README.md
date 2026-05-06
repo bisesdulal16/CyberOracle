@@ -10,7 +10,13 @@ CyberOracle is a secure AI gateway that sits between users and Ollama-hosted LLM
 
 ---
 
-## What It Does
+## Overview
+CyberOracle provides:
+- **Gateway** – FastAPI-based service running inside Docker with TLS-enabled reverse proxy.  
+- **Data Security** – Regex-based DLP (Data Loss Prevention), with planned integration of Microsoft Presidio and TruffleHog.  
+- **Compliance** – Policy checks (RBAC, red-team automation, continuous scanning).  
+- **Observability** – PostgreSQL logging with Grafana dashboards, Prometheus, and Loki.  
+- **Frontend** – React/Next.js dashboard for monitoring and interaction.  
 
 - **DLP** — Detects and redacts PII/PHI (SSN, credit cards, API keys, emails, and 25+ more) using regex and Microsoft Presidio
 - **RBAC** — JWT-based access control with three roles: admin, developer, auditor
@@ -222,6 +228,24 @@ bash scripts/package_release.sh v1.0.0
 ```
 
 ---
+
+**9\. Running the UI**
+--------------------------
+
+To run the UI in development mode:
+
+```bash
+# Navigate to UI directory
+cd ui/ui
+
+# Install dependencies
+npm install
+
+# Start development server
+npm run dev
+```
+
+The UI will be available at http://localhost:3000
 
 ## License
 

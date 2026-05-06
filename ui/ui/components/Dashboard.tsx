@@ -2,8 +2,13 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { isAuthenticated, clearAuth, getRole, apiFetch } from '../lib/auth';
+import { isAuthenticated, clearAuth, getRole } from '../lib/auth';
 import { can } from '../lib/permissions';
+import {
+  getDashboardSummary,
+  getComplianceStatus,
+  getRecentAlerts,
+} from '../lib/apiClient';
 
 import SecureChatPanel from './SecureChatPanel';
 import DocumentSanitizerPanel from './DocumentSanitizerPanel';
@@ -13,6 +18,7 @@ import AlertsPanel from './AlertsPanel';
 import ReportsPanel from './ReportsPanel';
 import Settings from './Settings';
 import KnowledgeBasePanel from './KnowledgeBasePanel';
+import ComplianceMonitorPanel from './ComplianceMonitorPanel';
 import AIModelsPanel from './AIModelsPanel';
 import AIAgentsPanel from './AIAgentsPanel';
 import MonitoringPanel from './MonitoringPanel';
@@ -34,9 +40,6 @@ import {
   ArrowPathIcon,
   ComputerDesktopIcon,
 } from '@heroicons/react/24/outline';
-
-const API_BASE =
-  process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:8001';
 
 /* ---------------- TYPES ---------------- */
 
@@ -69,6 +72,7 @@ const ALL_SECTIONS = [
   'Agents',
   'Knowledge Base',
   'Compliance',
+  'Compliance Monitor',
   'Alerts',
   'Audit Log',
   'Reports',
@@ -90,6 +94,7 @@ const SECTION_ICONS: Record<SectionName, SectionIconType> = {
   Agents: CircleStackIcon,
   'Knowledge Base': BookOpenIcon,
   Compliance: ShieldCheckIcon,
+  'Compliance Monitor': ShieldCheckIcon,
   Alerts: BellAlertIcon,
   'Audit Log': ClipboardDocumentListIcon,
   Reports: ChartBarIcon,
@@ -167,46 +172,33 @@ const Dashboard: React.FC = () => {
       setLoading(true);
       setFetchError(false);
 
-      try {
-        const [metricsRes, complianceRes, alertsRes] =
-          await Promise.all([
-            apiFetch(`${API_BASE}/api/metrics/summary`),
-            apiFetch(`${API_BASE}/api/compliance/status`),
-            apiFetch(`${API_BASE}/api/alerts/recent`),
-          ]);
+    try {
+      const [metricsData, complianceData, alertsData] = await Promise.all([
+        getDashboardSummary(),
+        getComplianceStatus(),
+        getRecentAlerts(),
+      ]);
 
-        if (!metricsRes.ok || !complianceRes.ok || !alertsRes.ok) {
-          throw new Error('API error');
-        }
+      if (cancelled) return;
 
-        const [metricsData, complianceData, alertsData] =
-          await Promise.all([
-            metricsRes.json(),
-            complianceRes.json(),
-            alertsRes.json(),
-          ]);
+      setSummary({
+        totalPrompts24h: metricsData.total_prompts_24h ?? 0,
+        blockedPrompts: metricsData.blocked_prompts ?? 0,
+        redactedOutputs: metricsData.redacted_outputs ?? 0,
+        highRiskEvents: metricsData.high_risk_events ?? 0,
+      });
 
-        if (cancelled) return;
+      setCompliance({
+        complianceScore: complianceData.compliance_score ?? 0,
+        compliantControls: complianceData.compliant_controls ?? 0,
+        totalControls: complianceData.total_controls ?? 0,
+      });
 
-        setSummary({
-          totalPrompts24h: metricsData.total_prompts_24h ?? 0,
-          blockedPrompts: metricsData.blocked_prompts ?? 0,
-          redactedOutputs: metricsData.redacted_outputs ?? 0,
-          highRiskEvents: metricsData.high_risk_events ?? 0,
-        });
-
-        setCompliance({
-          complianceScore: complianceData.compliance_score ?? 0,
-          compliantControls: complianceData.compliant_controls ?? 0,
-          totalControls: complianceData.total_controls ?? 0,
-        });
-
-        setAlerts(alertsData.alerts ?? []);
-      } catch {
-        if (!cancelled) setFetchError(true);
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
+      setAlerts(alertsData.alerts ?? []);
+    } catch {
+      if (!cancelled) setFetchError(true);
+    } finally {
+      if (!cancelled) setLoading(false);
     }
 
     fetchDashboard();
@@ -402,6 +394,9 @@ const Dashboard: React.FC = () => {
 
       case 'Compliance':
         return <CompliancePanel />;
+
+      case 'Compliance Monitor':
+        return <ComplianceMonitorPanel />;
 
       case 'Alerts':
         return <AlertsPanel />;

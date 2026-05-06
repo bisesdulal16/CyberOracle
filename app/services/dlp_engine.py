@@ -10,6 +10,7 @@ This is used by:
 - /api/scan (if you add one later)
 - any other internal services that need DLP.
 """
+
 from __future__ import annotations
 
 import re
