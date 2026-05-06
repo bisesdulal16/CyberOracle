@@ -132,6 +132,7 @@ for role_info in "admin:${ADMIN_USER}:${ADMIN_PASS}" "developer:${DEV_USER}:${DE
 done
 
 if [[ "$EXPORT_MODE" == true ]]; then
+  # Output eval-able export statements
   [[ -n "${TOKENS[admin]:-}" ]]     && echo "export TOKEN_ADMIN='${TOKENS[admin]}'"
   [[ -n "${TOKENS[developer]:-}" ]] && echo "export TOKEN_DEV='${TOKENS[developer]}'"
   [[ -n "${TOKENS[auditor]:-}" ]]   && echo "export TOKEN_AUDITOR='${TOKENS[auditor]}'"

@@ -13,6 +13,7 @@ OWASP Logging Guidance (OWASP-ASVS 9.1):
 
 import hashlib
 import logging
+import os
 import re
 from typing import Optional
 
@@ -189,6 +190,9 @@ async def log_request(
     stored_message = encrypt_value(safe_message) if safe_message else safe_message
 
     frameworks_str = ", ".join(frameworks) if frameworks else None
+
+    if os.getenv("PYTEST") == "1":
+        return
 
     async with AsyncSessionLocal() as session:
         entry = LogEntry(

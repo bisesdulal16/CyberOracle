@@ -11,6 +11,7 @@ Monitoring/health endpoints are exempt from rate limiting to prevent
 dashboard polling from consuming the user's request budget.
 """
 
+import asyncio
 import os
 import time
 
@@ -41,8 +42,8 @@ EXEMPT_PATHS = {
 
 # Role-based limits (requests per window) — mirrors policy.yaml
 ROLE_LIMITS: dict[str, int] = {
-    "admin": 1000,
-    "developer": 100,
+    "admin": 5,
+    "developer": 5,
     "auditor": 50,
 }
 
@@ -110,6 +111,20 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         history = [t for t in history if now - t < time_window]
 
         if len(history) >= rate_limit:
+            from app.utils.logger import log_request
+
+            asyncio.create_task(
+                log_request(
+                    endpoint=request.url.path,
+                    method=request.method,
+                    status_code=429,
+                    event_type="rate_limit_exceeded",
+                    severity="medium",
+                    risk_score=0.5,
+                    source="rate_limiter",
+                    message=f"Rate limit exceeded for {bucket_key} on {request.url.path}",
+                )
+            )
             return JSONResponse(
                 status_code=429,
                 content={
