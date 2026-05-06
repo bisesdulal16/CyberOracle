@@ -190,7 +190,7 @@ async def log_request(
     stored_message = encrypt_value(safe_message) if safe_message else safe_message
 
     frameworks_str = ", ".join(frameworks) if frameworks else None
-    
+
     # Normalize policy_decision for dashboards/ISCM panels.
     # Some routes pass decision="block" or decision="redact" but leave
     # policy_decision empty, which causes Grafana panels to show 0 blocked/redacted.
@@ -201,7 +201,7 @@ async def log_request(
             policy_decision = "redacted"
         else:
             policy_decision = decision
-    
+
     if os.getenv("PYTEST") == "1":
         return
 
