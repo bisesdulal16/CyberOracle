@@ -4,7 +4,7 @@ Test script to verify DLP metadata is correctly passed from middleware to routes
 """
 
 import asyncio
-from unittest.mock import Mock
+from unittest.mock import AsyncMock, Mock
 from app.middleware.dlp_filter import DLPFilterMiddleware
 from app.main import app
 
@@ -20,7 +20,7 @@ async def test_dlp_middleware_metadata():
     request._body = b'{"prompt": "My SSN is 123-45-6789"}'
 
     # Mock the call_next function
-    call_next = Mock()
+    call_next = AsyncMock()
     call_next.return_value = Mock()
 
     # Create middleware instance

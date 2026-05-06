@@ -13,6 +13,6 @@ exclude =
     build,
     dist,
     check_logs.py,
-    test_queries.py
+    scripts/query_metrics_manual.py
 max-line-length = 100
 ignore = E203,W503

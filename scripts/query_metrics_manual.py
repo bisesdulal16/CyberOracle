@@ -139,4 +139,5 @@ async def test_queries():
             )
 
 
-asyncio.run(test_queries())
+if __name__ == "__main__":
+    asyncio.run(test_queries())
