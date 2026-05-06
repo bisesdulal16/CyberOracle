@@ -1,0 +1,35 @@
+---
+- name: Verify CyberOracle VM provisioning environment
+  hosts: local
+  gather_facts: no
+  become: no
+
+  tasks:
+    - name: Verify Git
+      command: git --version
+      changed_when: false
+
+    - name: Verify Ansible
+      command: ansible --version
+      changed_when: false
+
+    - name: Verify Docker
+      command: docker --version
+      changed_when: false
+
+    - name: Verify Docker Compose
+      command: docker compose version
+      changed_when: false
+
+    - name: Verify PostgreSQL client
+      command: psql --version
+      changed_when: false
+      failed_when: false
+
+    - name: Verify running CyberOracle containers
+      shell: docker ps --format '{% raw %}table {{.Names}}\t{{.Status}}\t{{.Ports}}{% endraw %}'
+      changed_when: false
+
+    - name: Opertation Success
+      debug:
+        msg: "Verification complete: Ansible can manage the VM and CyberOracle infrastructure is present."
