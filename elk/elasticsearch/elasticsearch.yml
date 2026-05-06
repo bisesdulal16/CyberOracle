@@ -1,0 +1,10 @@
+cluster.name: cyberoracle
+node.name: cyberoracle-node-1
+discovery.type: single-node
+
+# Disable security for internal-only deployment
+xpack.security.enabled: false
+xpack.security.http.ssl.enabled: false
+
+# Allow connections from Logstash and Kibana containers
+network.host: 0.0.0.0

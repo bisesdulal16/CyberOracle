@@ -24,6 +24,7 @@ from pydantic import BaseModel, Field
 
 from app.auth.jwt_utils import create_access_token
 from app.auth.rbac import require_roles
+from app.utils.logger import log_request
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -105,6 +106,16 @@ async def login(body: LoginRequest):
     password_valid = pwd_context.verify(body.password, stored_hash)
 
     if not entry or not password_valid:
+        await log_request(
+            endpoint="/auth/login",
+            method="POST",
+            status_code=401,
+            event_type="auth_login_failed",
+            severity="high",
+            risk_score=0.7,
+            source="auth_route",
+            message=f"Failed login attempt for username: {body.username}",
+        )
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid username or password.",
@@ -112,6 +123,17 @@ async def login(body: LoginRequest):
 
     _, role = entry
     token = create_access_token({"sub": body.username, "role": role})
+
+    await log_request(
+        endpoint="/auth/login",
+        method="POST",
+        status_code=200,
+        event_type="auth_login_success",
+        severity="low",
+        risk_score=0.1,
+        source="auth_route",
+        message=f"Successful login for username: {body.username}, role: {role}",
+    )
 
     return LoginResponse(access_token=token, role=role)
 
