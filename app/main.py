@@ -56,11 +56,10 @@ app = FastAPI(
 # ------------------------------------------------
 # CORS Configuration
 # ------------------------------------------------
-# Restricts browser access to local development origins only.
-# Prevents unauthorized websites from making requests to the API.
+# Allow local development and production origins for the UI
 app.add_middleware(
     CORSMiddleware,
-    allow_origin_regex=r"^http://(localhost|127\.0\.0\.1)(:\d+)?$",
+    allow_origin_regex=r"^http://(localhost|127\.0\.0\.1)(:\d+)?$|^https?://cyberoracle\.eng\.unt\.edu$",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

@@ -51,7 +51,7 @@ type Conversation = {
 
 import { apiFetch } from '../lib/auth';
 
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE ?? 'http://localhost:8010';
+const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:8000';
 const STORAGE_KEY = 'cyberoracle_secure_chat_conversations_v1';
 
 function Spinner({ className }: { className?: string }) {

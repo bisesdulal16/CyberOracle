@@ -2,7 +2,8 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { isAuthenticated, clearAuth, getRole, apiFetch } from '../lib/auth';
+import { isAuthenticated, clearAuth, getRole } from '../lib/auth';
+import { getDashboardSummary, getComplianceStatus, getRecentAlerts } from '../lib/apiClient';
 import SecureChatPanel from './SecureChatPanel';
 import DocumentSanitizerPanel from './DocumentSanitizerPanel';
 import CompliancePanel from './CompliancePanel';
@@ -10,6 +11,7 @@ import AuditLogPanel from './AuditLogPanel';
 import AlertsPanel from './AlertsPanel';
 import ReportsPanel from './ReportsPanel';
 import KnowledgeBasePanel from './KnowledgeBasePanel';
+import ComplianceMonitorPanel from './ComplianceMonitorPanel';
 import {
   Squares2X2Icon,
   ChatBubbleLeftRightIcon,
@@ -81,6 +83,7 @@ const ALL_SECTIONS = [
   'Agents',
   'Knowledge Base',
   'Compliance',
+  'Compliance Monitor',
   'Alerts',
   'Audit Log',
   'Reports',
@@ -99,6 +102,7 @@ const SECTION_ICONS: Record<SectionName, SectionIconType> = {
   'Agents': CircleStackIcon,
   'Knowledge Base': BookOpenIcon,
   'Compliance': ShieldCheckIcon,
+  'Compliance Monitor': ShieldCheckIcon,
   'Alerts': BellAlertIcon,
   'Audit Log': ClipboardDocumentListIcon,
   'Reports': ChartBarIcon,
@@ -132,20 +136,10 @@ const Dashboard: React.FC = () => {
       setLoading(true);
       setFetchError(false);
       try {
-        const [metricsRes, complianceRes, alertsRes] = await Promise.all([
-          apiFetch(`${API_BASE}/api/metrics/summary`),
-          apiFetch(`${API_BASE}/api/compliance/status`),
-          apiFetch(`${API_BASE}/api/alerts/recent`),
-        ]);
-
-        if (!metricsRes.ok || !complianceRes.ok || !alertsRes.ok) {
-          throw new Error('One or more API responses were not OK');
-        }
-
         const [metricsData, complianceData, alertsData] = await Promise.all([
-          metricsRes.json(),
-          complianceRes.json(),
-          alertsRes.json(),
+          getDashboardSummary(),
+          getComplianceStatus(),
+          getRecentAlerts(),
         ]);
 
         if (cancelled) return;
@@ -369,6 +363,9 @@ const Dashboard: React.FC = () => {
 
       case 'Compliance':
         return <CompliancePanel />;
+
+      case 'Compliance Monitor':
+        return <ComplianceMonitorPanel />;
 
       case 'Alerts':
         return <AlertsPanel />;

@@ -16,6 +16,7 @@ CyberOracle provides:
 - **Data Security** – Regex-based DLP (Data Loss Prevention), with planned integration of Microsoft Presidio and TruffleHog.  
 - **Compliance** – Policy checks (RBAC, red-team automation, continuous scanning).  
 - **Observability** – PostgreSQL logging with Grafana dashboards, Prometheus, and Loki.  
+- **Frontend** – React/Next.js dashboard for monitoring and interaction.  
 
 ---
 
@@ -148,6 +149,24 @@ Backend logs:
 Compose logs:
 
 `   sudo docker compose logs -f   `
+
+**9\. Running the UI**
+--------------------------
+
+To run the UI in development mode:
+
+```bash
+# Navigate to UI directory
+cd ui/ui
+
+# Install dependencies
+npm install
+
+# Start development server
+npm run dev
+```
+
+The UI will be available at http://localhost:3000
 
 ## License
 This project is licensed under the [MIT License](LICENSE).
