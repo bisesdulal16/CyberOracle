@@ -67,7 +67,7 @@ bcrypt==4.0.1
 # Optional — only needed if the matching API key is configured.
 # Adapters lazy-import so missing packages don't break Ollama.
 # -----------------------------------------------------------------------------
-openai>=1.0.0
+openai>=2.34.0
 anthropic>=0.20.0
 google-genai>=1.0.0
 
