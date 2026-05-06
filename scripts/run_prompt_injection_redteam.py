@@ -43,12 +43,12 @@ BASE_URL = os.getenv("CYBERORACLE_BASE_URL", "http://localhost:8000")
 CHAT_ENDPOINT = os.getenv("CYBERORACLE_CHAT_ENDPOINT", "/api/scan")
 
 # /api/scan expects JSON: {"message": "..."}
-REQUEST_FIELD = os.getenv("CYBERORACLE_CHAT_REQUEST_FIELD", "message")
+REQUEST_FIELD = os.getenv("CYBERORACLE_CHAT_REQUEST_FIELD", "text")
 
 # Candidate fields in the response that might hold returned text.
 # For /api/scan this may just be the redacted "message", but we keep
 # this generic so the script can be reused with a real chat endpoint later.
-RESPONSE_CANDIDATES = ["message", "answer", "response"]
+RESPONSE_CANDIDATES = ["redacted", "message", "answer", "response"]
 
 
 @dataclass
