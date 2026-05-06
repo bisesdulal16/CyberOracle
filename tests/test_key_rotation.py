@@ -17,7 +17,6 @@ if PROJECT_ROOT not in sys.path:
 
 from scripts.key_rotation import _next_key_id, _decrypt_safe, _update_env  # noqa: E402
 
-
 # ---------------------------------------------------------------------------
 # _next_key_id
 # ---------------------------------------------------------------------------

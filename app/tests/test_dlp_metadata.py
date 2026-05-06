@@ -4,11 +4,10 @@ Test script to verify DLP metadata is correctly passed from middleware to routes
 """
 
 import asyncio
-from unittest.mock import Mock, patch
+from unittest.mock import Mock
 from app.middleware.dlp_filter import DLPFilterMiddleware
-from starlette.requests import Request
-from starlette.testclient import TestClient
 from app.main import app
+
 
 # Test the middleware behavior
 async def test_dlp_middleware_metadata():
@@ -31,12 +30,12 @@ async def test_dlp_middleware_metadata():
     await middleware.dispatch(request, call_next)
 
     # Check that metadata was set
-    assert hasattr(request.state, 'dlp_detected')
-    assert hasattr(request.state, 'dlp_entities')
-    assert hasattr(request.state, 'dlp_redacted')
-    assert hasattr(request.state, 'dlp_policy_decision')
-    assert hasattr(request.state, 'dlp_risk_score')
-    assert hasattr(request.state, 'dlp_severity')
+    assert hasattr(request.state, "dlp_detected")
+    assert hasattr(request.state, "dlp_entities")
+    assert hasattr(request.state, "dlp_redacted")
+    assert hasattr(request.state, "dlp_policy_decision")
+    assert hasattr(request.state, "dlp_risk_score")
+    assert hasattr(request.state, "dlp_severity")
 
     print("✅ DLP middleware correctly sets metadata on request.state")
     print(f"dlp_detected: {request.state.dlp_detected}")
@@ -45,6 +44,7 @@ async def test_dlp_middleware_metadata():
     print(f"dlp_policy_decision: {request.state.dlp_policy_decision}")
     print(f"dlp_risk_score: {request.state.dlp_risk_score}")
     print(f"dlp_severity: {request.state.dlp_severity}")
+
 
 if __name__ == "__main__":
     asyncio.run(test_dlp_middleware_metadata())

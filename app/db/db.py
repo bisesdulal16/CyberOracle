@@ -20,7 +20,7 @@ engine = create_async_engine(
     DATABASE_URL,
     echo=True,
     echo_pool=os.getenv("PYTEST") == "1",  # Echo pool only in tests
-    poolclass=NullPool  # Prevents connection reuse race conditions
+    poolclass=NullPool,  # Prevents connection reuse race conditions
 )
 
 # Create async session factory for database operations

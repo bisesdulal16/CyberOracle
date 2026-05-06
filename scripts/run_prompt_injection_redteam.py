@@ -31,7 +31,6 @@ from typing import List, Literal, Dict, Any
 
 import requests
 
-
 # 🔧 Adjust these if your app uses different paths/fields
 
 # Base URL of your running CyberOracle instance

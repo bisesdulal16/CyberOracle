@@ -38,7 +38,6 @@ if PROJECT_ROOT not in sys.path:
 
 from cryptography.fernet import Fernet, InvalidToken  # noqa: E402
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------

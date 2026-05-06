@@ -305,11 +305,11 @@ async def ai_query(
     # ------------------------------------------------------------------
 
     # Check if DLP was detected in middleware
-    dlp_detected = getattr(request.state, 'dlp_detected', False)
-    dlp_entities = getattr(request.state, 'dlp_entities', [])
-    dlp_policy_decision = getattr(request.state, 'dlp_policy_decision', 'allow')
-    dlp_risk_score = getattr(request.state, 'dlp_risk_score', 0.0)
-    dlp_severity = getattr(request.state, 'dlp_severity', 'low')
+    dlp_detected = getattr(request.state, "dlp_detected", False)
+    dlp_entities = getattr(request.state, "dlp_entities", [])
+    dlp_policy_decision = getattr(request.state, "dlp_policy_decision", "allow")
+    dlp_risk_score = getattr(request.state, "dlp_risk_score", 0.0)
+    dlp_severity = getattr(request.state, "dlp_severity", "low")
 
     # Use middleware DLP metadata if available
     if dlp_detected:
@@ -324,7 +324,11 @@ async def ai_query(
         risk_score = combined_risk
         rules_triggered = all_rules
         redacted = redacted_flag
-        severity = "high" if combined_risk >= 0.7 else "medium" if combined_risk >= 0.3 else "low"
+        severity = (
+            "high"
+            if combined_risk >= 0.7
+            else "medium" if combined_risk >= 0.3 else "low"
+        )
 
     log_payload = {
         "event": "ai_query",
@@ -365,13 +369,12 @@ async def ai_query(
         risk_score = dlp_risk_score
         rules_triggered = dlp_entities
         redacted = True
-        blocked = blocked_flag
+
     else:
         policy_decision = output_decision.decision.value
         risk_score = combined_risk
         rules_triggered = all_rules
         redacted = redacted_flag
-        blocked = blocked_flag
 
     return AIQueryResponse(
         request_id=request_id,
