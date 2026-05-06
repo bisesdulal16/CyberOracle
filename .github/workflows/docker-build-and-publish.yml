@@ -91,7 +91,7 @@ jobs:
           IMAGE="${{ env.IMAGE_NAME }}"
           VERSION="${{ steps.version.outputs.version }}"
           TS="${{ steps.meta.outputs.timestamp }}"
-
+      
           REGISTRY="${REGISTRY#http://}"
           REGISTRY="${REGISTRY#https://}"
           REGISTRY="${REGISTRY%/}"
@@ -100,11 +100,25 @@ jobs:
 
           FULL_IMAGE="${REGISTRY}/${REPO}/${IMAGE}"
 
+          if [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
+            if [[ -z "$REGISTRY" || -z "$REPO" ]]; then
+              echo "ERROR: NEXUS_DOCKER_REGISTRY or NEXUS_REPO_DOCKER secret is missing."
+              echo "REGISTRY is empty? $([[ -z "$REGISTRY" ]] && echo yes || echo no)"
+              echo "REPO is empty? $([[ -z "$REPO" ]] && echo yes || echo no)"
+              exit 1
+            fi
+
+            FULL_IMAGE="${REGISTRY}/${REPO}/${IMAGE}"
+          else
+            echo "Pull request build detected. Using local image tag only."
+            FULL_IMAGE="${IMAGE}"
+          fi
+
           echo "Building image with tags:"
           echo "  $FULL_IMAGE:$VERSION"
           echo "  $FULL_IMAGE:latest"
           echo "  $FULL_IMAGE:$TS"
-
+      
           docker build \
             -t "$FULL_IMAGE:$VERSION" \
             -t "$FULL_IMAGE:latest" \

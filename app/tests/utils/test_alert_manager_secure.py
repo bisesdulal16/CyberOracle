@@ -28,13 +28,15 @@ def test_send_alert_includes_timestamp():
 
 
 def test_send_discord_no_webhook_prints(capsys):
-    _send_discord("test message")
+    with patch("app.utils.alert_manager.DISCORD_WEBHOOK_URL", None):
+        _send_discord("test message")
     captured = capsys.readouterr()
     assert "Discord webhook not set" in captured.out
 
 
 def test_send_slack_no_webhook_prints(capsys):
-    _send_slack("test message")
+    with patch("app.utils.alert_manager.SLACK_WEBHOOK_URL", None):
+        _send_slack("test message")
     captured = capsys.readouterr()
     assert "Slack webhook not set" in captured.out
 

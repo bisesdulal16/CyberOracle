@@ -11,7 +11,6 @@ before storage or transmission.
 from app.middleware.dlp_regex import scan_text, REGEX_PATTERNS
 import re
 
-
 # ---------------------------------------------------------------------------
 # SSN tests
 # ---------------------------------------------------------------------------

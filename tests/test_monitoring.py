@@ -15,7 +15,6 @@ from app.auth.jwt_utils import create_access_token
 import app.routes.reports as reports_module
 from app.services import threat_detector as td_module
 
-
 # ── Auth helpers ──────────────────────────────────────────────────────────────
 
 

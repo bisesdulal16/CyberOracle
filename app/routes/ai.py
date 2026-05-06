@@ -10,13 +10,13 @@ from pydantic import BaseModel, Field
 
 from app.services import dlp_engine
 from app.services.dlp_engine import PolicyDecision
-from app.services import model_router
 from app.utils.logger import log_request, mask_sensitive
 
 # RBAC permission enforcement
 from app.auth.rbac import require_permission
 
 from app.middleware.api_key_auth import verify_api_key
+from app.services import model_router
 
 router = APIRouter()
 
@@ -218,6 +218,7 @@ async def ai_query(
                 "redactions": [],
                 "blocked_reason": "Sensitive data detected in input.",
                 "phase": "input",
+                "input_redacted": input_redacted_text,
             },
             meta={"latency_ms": latency_ms},
         )
@@ -302,25 +303,48 @@ async def ai_query(
     # ------------------------------------------------------------------
     # 5) LOG
     # ------------------------------------------------------------------
+
+    # Check if DLP was detected in middleware
+    dlp_detected = getattr(request.state, "dlp_detected", False)
+    dlp_entities = getattr(request.state, "dlp_entities", [])
+    dlp_policy_decision = getattr(request.state, "dlp_policy_decision", "allow")
+    dlp_risk_score = getattr(request.state, "dlp_risk_score", 0.0)
+    dlp_severity = getattr(request.state, "dlp_severity", "low")
+
+    # Use middleware DLP metadata if available
+    if dlp_detected:
+        # Update the logging values to reflect middleware DLP detection
+        policy_decision = dlp_policy_decision
+        risk_score = dlp_risk_score
+        rules_triggered = dlp_entities
+        redacted = True
+        severity = dlp_severity
+    else:
+        policy_decision = output_decision.decision.value
+        risk_score = combined_risk
+        rules_triggered = all_rules
+        redacted = redacted_flag
+        severity = (
+            "high"
+            if combined_risk >= 0.7
+            else "medium" if combined_risk >= 0.3 else "low"
+        )
+
     log_payload = {
         "event": "ai_query",
         "request_id": request_id,
         "model": model_used,
         "input_preview": input_redacted_text[:200],
         "output_preview": raw_output[:200],
-        "policy_decision": output_decision.decision.value,
-        "risk_score": combined_risk,
-        "rules_triggered": all_rules,
+        "policy_decision": policy_decision,
+        "risk_score": risk_score,
+        "rules_triggered": rules_triggered,
         "redactions": redactions_meta,
-        "redacted": redacted_flag,
+        "redacted": redacted,
         "blocked": blocked_flag,
         "latency_ms": latency_ms,
         "client_ip": client_ip,
     }
-
-    _sev = (
-        "high" if combined_risk >= 0.7 else "medium" if combined_risk >= 0.3 else "low"
-    )
 
     masked_log = mask_sensitive(str(log_payload))
     await log_request(
@@ -329,26 +353,41 @@ async def ai_query(
         status_code=200,
         message=masked_log,
         event_type="ai_query",
-        severity=_sev,
-        risk_score=combined_risk,
+        severity=severity,
+        risk_score=risk_score,
         source="ai_route",
-        policy_decision=output_decision.decision.value,
+        policy_decision=policy_decision,
     )
 
     # ------------------------------------------------------------------
     # 6) RESPONSE
     # ------------------------------------------------------------------
+
+    # Use middleware DLP metadata if available for the response
+    if dlp_detected:
+        policy_decision = dlp_policy_decision
+        risk_score = dlp_risk_score
+        rules_triggered = dlp_entities
+        redacted = True
+
+    else:
+        policy_decision = output_decision.decision.value
+        risk_score = combined_risk
+        rules_triggered = all_rules
+        redacted = redacted_flag
+
     return AIQueryResponse(
         request_id=request_id,
         model=model_used,
         output={"text": final_text, "redacted": redacted_flag, "blocked": blocked_flag},
         security={
-            "policy_decision": output_decision.decision.value,
-            "risk_score": combined_risk,
-            "rules_triggered": all_rules,
+            "policy_decision": policy_decision,
+            "risk_score": risk_score,
+            "rules_triggered": rules_triggered,
             "redactions": redactions_meta,
             "blocked_reason": blocked_reason,
             "phase": "output",
+            "input_redacted": input_redacted_text,
         },
         meta={"latency_ms": latency_ms},
     )

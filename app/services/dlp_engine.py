@@ -10,6 +10,7 @@ This is used by:
 - /api/scan (if you add one later)
 - any other internal services that need DLP.
 """
+
 from __future__ import annotations
 
 import re
@@ -81,6 +82,7 @@ def scan_text(text: str) -> Tuple[str, List[DlpFinding]]:
         text=text,
         entities=TARGET_ENTITIES,
         language="en",
+        score_threshold=0.3,
     )
 
     entities = [r.entity_type for r in results]

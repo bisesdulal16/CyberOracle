@@ -15,7 +15,6 @@ from app.auth.jwt_utils import create_access_token
 import app.routes.metrics as metrics_module
 import app.services.log_promoter as promoter_module
 
-
 # ── Auth helpers ──────────────────────────────────────────────────────────────
 
 

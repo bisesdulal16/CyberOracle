@@ -129,7 +129,7 @@ def test_clean_document_returns_zero_redactions(client, auth_headers, monkeypatc
     monkeypatch.setattr(
         doc_module,
         "_extract_text_docx",
-        lambda _content: "This quarterly report covers general business operations.",
+        lambda _content: "The software system processes data efficiently.",
     )
 
     response = client.post(
