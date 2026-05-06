@@ -55,6 +55,69 @@ services:
     volumes:
       - grafana_data:/var/lib/grafana  
 
+  # ---------------------------------------------------------------------------
+  # ELK Stack — reads from the existing PostgreSQL logs table via JDBC.
+  # No changes to the FastAPI app are required.
+  # ---------------------------------------------------------------------------
+
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.13.0
+    container_name: cyberoracle-elasticsearch
+    restart: unless-stopped
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - xpack.security.http.ssl.enabled=false
+      - ES_JAVA_OPTS=-Xms512m -Xmx512m
+    ports:
+      - "9200:9200"
+    volumes:
+      - esdata:/usr/share/elasticsearch/data
+      - ./elk/elasticsearch/elasticsearch.yml:/usr/share/elasticsearch/config/elasticsearch.yml:ro
+    healthcheck:
+      test: ["CMD-SHELL", "curl -s http://localhost:9200/_cluster/health | grep -q '\"status\":\"green\\|yellow\"'"]
+      interval: 20s
+      timeout: 10s
+      retries: 5
+
+  logstash:
+    build:
+      context: ./elk/logstash
+      dockerfile: Dockerfile
+    container_name: cyberoracle-logstash
+    restart: unless-stopped
+    volumes:
+      - ./elk/logstash/pipeline:/usr/share/logstash/pipeline:ro
+      - ./elk/logstash/config/logstash.yml:/usr/share/logstash/config/logstash.yml:ro
+      - ./elk/logstash/config/pipelines.yml:/usr/share/logstash/config/pipelines.yml:ro
+      - logstash_data:/usr/share/logstash/data
+    environment:
+      - LS_JAVA_OPTS=-Xms256m -Xmx256m
+    network_mode: host
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+
+  kibana:
+    image: docker.elastic.co/kibana/kibana:8.13.0
+    container_name: cyberoracle-kibana
+    restart: unless-stopped
+    ports:
+      - "5601:5601"
+    volumes:
+      - ./elk/kibana/kibana.yml:/usr/share/kibana/config/kibana.yml:ro
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+
 volumes:
   pgdata:
-  grafana_data:   # <-- 🚀 NEW PERSISTENT VOLUME
+  grafana_data:
+  esdata:
+  logstash_data:
+
+networks:
+  default:
+    driver: bridge
+  cyberoracle-4_default:
+    external: true

@@ -4,6 +4,7 @@ Logger async tests — covers compute_log_hash and mask_sensitive edge cases.
 
 from app.utils.logger import compute_log_hash, mask_sensitive, secure_log
 
+import os
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -17,7 +18,9 @@ async def test_log_request_calls_db():
     mock_session.add = MagicMock()
     mock_session.commit = AsyncMock()
 
-    with patch("app.utils.logger.AsyncSessionLocal", return_value=mock_session):
+    with patch.dict(os.environ, {"PYTEST": ""}), patch(
+        "app.utils.logger.AsyncSessionLocal", return_value=mock_session
+    ):
         from app.utils.logger import log_request
 
         await log_request(
@@ -40,7 +43,9 @@ async def test_log_request_masks_sensitive_message():
     mock_session.add = MagicMock()
     mock_session.commit = AsyncMock()
 
-    with patch("app.utils.logger.AsyncSessionLocal", return_value=mock_session):
+    with patch.dict(os.environ, {"PYTEST": ""}), patch(
+        "app.utils.logger.AsyncSessionLocal", return_value=mock_session
+    ):
         from app.utils.logger import log_request
 
         await log_request(

@@ -1,0 +1,2 @@
+- pipeline.id: cyberoracle
+  path.config: "/usr/share/logstash/pipeline/cyberoracle.conf"
