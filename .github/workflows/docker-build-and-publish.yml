@@ -4,9 +4,6 @@ on:
   push:
     branches:
       - main
-  pull_request:
-    branches:
-      - main
   workflow_dispatch:
 
 permissions:
@@ -122,7 +119,7 @@ jobs:
             -t "$FULL_IMAGE:latest" \
             -t "$FULL_IMAGE:$TS" \
             .
-            
+
       # Only push to Nexus when on main
       - name: Push Docker image to Nexus
         if: github.ref == 'refs/heads/main'
