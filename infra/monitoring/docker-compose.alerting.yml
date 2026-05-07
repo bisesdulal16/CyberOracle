@@ -1,0 +1,22 @@
+services:
+  fluent-bit:
+    image: fluent/fluent-bit:2.2
+    container_name: cyberoracle-fluent-bit
+    restart: unless-stopped
+    volumes:
+      - ./fluent-bit/fluent-bit.conf:/fluent-bit/etc/fluent-bit.conf:ro
+      - ./fluent-bit/parsers.conf:/fluent-bit/etc/parsers.conf:ro
+      - ./fluent-bit/severity.lua:/fluent-bit/etc/severity.lua:ro
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+
+  alertmanager:
+    image: prom/alertmanager:v0.27.0
+    container_name: cyberoracle-alertmanager
+    restart: unless-stopped
+    ports:
+      - "9093:9093"
+    volumes:
+      - ./alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+    command:
+      - --config.file=/etc/alertmanager/alertmanager.yml

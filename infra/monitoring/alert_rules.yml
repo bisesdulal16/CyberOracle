@@ -1,0 +1,23 @@
+groups:
+  - name: cyberoracle-log-promotion
+    rules:
+      - alert: CyberOracleHighSeverityLogs
+        expr: sum(count_over_time({job="fluent-bit", service="cyberoracle-api", severity="high"}[1m])) > 0
+        for: 0m
+        labels:
+          severity: high
+          team: cyberoracle
+        annotations:
+          summary: "High-severity CyberOracle log detected"
+          description: "A high-severity application/security/policy event was promoted from logs to an alert. Check Grafana Loki stream: {service=\"cyberoracle-api\", severity=\"high\"}."
+
+      - alert: CyberOraclePolicyViolation
+        expr: sum(count_over_time({job="fluent-bit", service="cyberoracle-api", category="policy_violation"}[1m])) > 0
+        for: 0m
+        labels:
+          severity: high
+          team: cyberoracle
+          category: policy_violation
+        annotations:
+          summary: "CyberOracle DLP or compliance policy violation"
+          description: "A DLP/compliance event was detected and promoted to Alertmanager."

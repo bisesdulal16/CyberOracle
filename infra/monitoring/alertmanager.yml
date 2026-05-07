@@ -1,0 +1,27 @@
+global:
+  resolve_timeout: 1m
+
+route:
+  receiver: cyberoracle-console
+  group_by: [alertname, severity, category]
+  group_wait: 5s
+  group_interval: 30s
+  repeat_interval: 5m
+  routes:
+    - matchers:
+        - severity="high"
+      receiver: cyberoracle-high-severity
+
+receivers:
+  - name: cyberoracle-console
+
+  - name: cyberoracle-high-severity
+    # For class demo, Alertmanager UI shows alerts at http://localhost:9093.
+    # To enable email later, fill SMTP settings below.
+    # email_configs:
+    #   - to: your_email@example.com
+    #     from: cyberoracle@example.com
+    #     smarthost: smtp.gmail.com:587
+    #     auth_username: cyberoracle@example.com
+    #     auth_password: app-password-here
+    #     send_resolved: true

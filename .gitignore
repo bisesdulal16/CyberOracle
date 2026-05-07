@@ -51,3 +51,5 @@ node_modules/
 # Local Claude files
 .claude/
 claude session.txt
+actions-runner/
+infra/ansible/~STUDENTSqht0003/

@@ -17,7 +17,7 @@ fi
 echo
 
 # 3) Postgres reachable? (adjust service name/user/db if needed)
-PG_SERVICE="${PG_SERVICE:-postgres}"
+PG_SERVICE="${PG_SERVICE:-db}"
 PG_USER="${PG_USER:-postgres}"
 PG_DB="${PG_DB:-postgres}"
 
